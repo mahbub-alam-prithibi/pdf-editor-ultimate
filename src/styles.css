@@ -213,6 +213,15 @@ body {
   border-color: var(--accent);
 }
 
+.thumb.dragging {
+  opacity: 0.4;
+}
+
+.thumb.drag-over {
+  border-top-color: var(--accent);
+  box-shadow: 0 -3px 0 -1px var(--accent);
+}
+
 .thumb-canvas {
   display: flex;
   justify-content: center;
@@ -407,6 +416,20 @@ body {
   }
   .viewer {
     padding: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .tool-label {
+    display: none;
+  }
+  .tool-btn {
+    min-width: 40px;
+  }
+  .toolbar,
+  .edit-toolbar {
+    padding: 8px 10px;
+    gap: 6px;
   }
 }
 

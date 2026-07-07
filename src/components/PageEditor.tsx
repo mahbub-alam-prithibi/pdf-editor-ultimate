@@ -70,6 +70,18 @@ export function PageEditor({
     }
   }, [src.doc, page.srcPageIndex, page.rotation, scale])
 
+  // Escape deselects / stops editing the current text box.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        ;(document.activeElement as HTMLElement | null)?.blur?.()
+        setEditingId(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const toPdf = useCallback(
     (clientX: number, clientY: number) => {
       const surface = surfaceRef.current

@@ -7,6 +7,10 @@ interface Props {
   setZoom: (z: number) => void
   pageCount: number
   onRotateAll: (delta: number) => void
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
   busy: boolean
 }
 
@@ -24,6 +28,10 @@ export function Toolbar({
   setZoom,
   pageCount,
   onRotateAll,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   busy,
 }: Props) {
   return (
@@ -45,6 +53,25 @@ export function Toolbar({
 
         {pageCount > 0 && (
           <>
+            <div className="divider" />
+            <button
+              className="btn icon"
+              onClick={onUndo}
+              disabled={!canUndo}
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+            >
+              ↶
+            </button>
+            <button
+              className="btn icon"
+              onClick={onRedo}
+              disabled={!canRedo}
+              title="Redo (Ctrl+Shift+Z)"
+              aria-label="Redo"
+            >
+              ↷
+            </button>
             <div className="divider" />
             <div className="zoom" role="group" aria-label="Zoom">
               <button

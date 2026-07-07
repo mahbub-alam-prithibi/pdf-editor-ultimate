@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { PdfCanvas } from './PdfCanvas'
 import type { PageItem, SourceDoc } from '../lib/types'
 
@@ -9,6 +10,7 @@ interface Props {
   onRotate: (id: string, delta: number) => void
   onDelete: (id: string) => void
   onMove: (id: string, dir: -1 | 1) => void
+  onReorder: (fromId: string, toId: string) => void
 }
 
 export function ThumbnailSidebar({
@@ -19,22 +21,50 @@ export function ThumbnailSidebar({
   onRotate,
   onDelete,
   onMove,
+  onReorder,
 }: Props) {
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
+
   return (
     <aside className="sidebar">
       <div className="sidebar-head">
-        {pages.length} page{pages.length !== 1 ? 's' : ''}
+        {pages.length} page{pages.length !== 1 ? 's' : ''} · drag to reorder
       </div>
       <div className="thumbs">
         {pages.map((p, i) => {
           const src = sources.get(p.srcId)
           if (!src) return null
           const active = p.id === selectedId
+          const isOver = overId === p.id && draggingId !== p.id
           return (
             <div
               key={p.id}
-              className={`thumb${active ? ' active' : ''}`}
+              className={
+                'thumb' +
+                (active ? ' active' : '') +
+                (draggingId === p.id ? ' dragging' : '') +
+                (isOver ? ' drag-over' : '')
+              }
+              draggable
               onClick={() => onSelect(p.id)}
+              onDragStart={(e) => {
+                setDraggingId(p.id)
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', p.id)
+              }}
+              onDragEnter={() => setOverId(p.id)}
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnd={() => {
+                setDraggingId(null)
+                setOverId(null)
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                if (draggingId && draggingId !== p.id) onReorder(draggingId, p.id)
+                setDraggingId(null)
+                setOverId(null)
+              }}
             >
               <div className="thumb-canvas">
                 <PdfCanvas
@@ -46,11 +76,7 @@ export function ThumbnailSidebar({
               </div>
               <div className="thumb-num">{i + 1}</div>
               <div className="thumb-actions" onClick={(e) => e.stopPropagation()}>
-                <button
-                  title="Move up"
-                  onClick={() => onMove(p.id, -1)}
-                  disabled={i === 0}
-                >
+                <button title="Move up" onClick={() => onMove(p.id, -1)} disabled={i === 0}>
                   ↑
                 </button>
                 <button

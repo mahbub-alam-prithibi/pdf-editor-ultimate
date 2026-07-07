@@ -23,6 +23,14 @@ const isEditingText = () => {
   return !!el && (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')
 }
 
+interface Snapshot {
+  pages: PageItem[]
+  sources: Map<string, SourceDoc>
+  annotations: AnnotationMap
+  formValues: Record<string, string | boolean>
+  selectedId: string | null
+}
+
 export default function App() {
   const [sources, setSources] = useState<Map<string, SourceDoc>>(new Map())
   const [pages, setPages] = useState<PageItem[]>([])
@@ -101,16 +109,53 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ---- undo / redo history (structural changes) ----
+  const undoStack = useRef<Snapshot[]>([])
+  const redoStack = useRef<Snapshot[]>([])
+  const [, bumpHistory] = useState(0)
+
+  const current = (): Snapshot => ({ pages, sources, annotations, formValues, selectedId })
+  const snapshot = () => {
+    undoStack.current.push(current())
+    if (undoStack.current.length > 80) undoStack.current.shift()
+    redoStack.current = []
+    bumpHistory((n) => n + 1)
+  }
+  const restore = (s: Snapshot) => {
+    setPages(s.pages)
+    setSources(s.sources)
+    setAnnotations(s.annotations)
+    setFormValues(s.formValues)
+    setSelectedId(s.selectedId)
+  }
+  const undo = () => {
+    if (!undoStack.current.length) return
+    redoStack.current.push(current())
+    restore(undoStack.current.pop()!)
+    bumpHistory((n) => n + 1)
+  }
+  const redo = () => {
+    if (!redoStack.current.length) return
+    undoStack.current.push(current())
+    restore(redoStack.current.pop()!)
+    bumpHistory((n) => n + 1)
+  }
+
   // ---- page operations ----
-  const rotatePage = (id: string, delta: number) =>
+  const rotatePage = (id: string, delta: number) => {
+    snapshot()
     setPages((prev) =>
       prev.map((p) => (p.id === id ? { ...p, rotation: norm(p.rotation + delta) } : p)),
     )
+  }
 
-  const rotateAll = (delta: number) =>
+  const rotateAll = (delta: number) => {
+    snapshot()
     setPages((prev) => prev.map((p) => ({ ...p, rotation: norm(p.rotation + delta) })))
+  }
 
   const deletePage = (id: string) => {
+    snapshot()
     const idx = pages.findIndex((p) => p.id === id)
     const next = pages.filter((p) => p.id !== id)
     setPages(next)
@@ -123,7 +168,8 @@ export default function App() {
     }
   }
 
-  const movePage = (id: string, dir: -1 | 1) =>
+  const movePage = (id: string, dir: -1 | 1) => {
+    snapshot()
     setPages((prev) => {
       const idx = prev.findIndex((p) => p.id === id)
       const j = idx + dir
@@ -132,22 +178,41 @@ export default function App() {
       ;[next[idx], next[j]] = [next[j], next[idx]]
       return next
     })
+  }
 
-  // ---- annotation operations ----
-  const setPageAnns = (pageId: string, anns: Annotation[]) =>
-    setAnnotations((prev) => ({ ...prev, [pageId]: anns }))
-
-  const undoOnPage = () => {
-    if (!selectedId) return
-    setAnnotations((prev) => {
-      const anns = prev[selectedId] ?? []
-      if (!anns.length) return prev
-      return { ...prev, [selectedId]: anns.slice(0, -1) }
+  // Drag-and-drop reorder: move `fromId` to just before `toId`.
+  const reorderPage = (fromId: string, toId: string) => {
+    if (fromId === toId) return
+    snapshot()
+    setPages((prev) => {
+      const from = prev.findIndex((p) => p.id === fromId)
+      if (from < 0) return prev
+      const next = [...prev]
+      const [moved] = next.splice(from, 1)
+      const to = next.findIndex((p) => p.id === toId)
+      next.splice(to < 0 ? next.length : to, 0, moved)
+      return next
     })
   }
 
-  const clearPageAnns = () => {
+  // ---- annotation operations ----
+  const setPageAnns = (pageId: string, anns: Annotation[]) => {
+    // Snapshot only on structural changes (add/remove), not on every keystroke/drag.
+    if (anns.length !== (annotations[pageId] ?? []).length) snapshot()
+    setAnnotations((prev) => ({ ...prev, [pageId]: anns }))
+  }
+
+  const undoOnPage = () => {
     if (!selectedId) return
+    const anns = annotations[selectedId] ?? []
+    if (!anns.length) return
+    snapshot()
+    setAnnotations((prev) => ({ ...prev, [selectedId]: anns.slice(0, -1) }))
+  }
+
+  const clearPageAnns = () => {
+    if (!selectedId || !(annotations[selectedId]?.length)) return
+    snapshot()
     setAnnotations((prev) => ({ ...prev, [selectedId]: [] }))
   }
 
@@ -169,6 +234,7 @@ export default function App() {
   }
 
   const clearAll = () => {
+    if (pages.length) snapshot()
     setPages([])
     setSources(new Map())
     setAnnotations({})
@@ -217,6 +283,24 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [pages, selectedId])
 
+  // ---- undo / redo shortcuts (native undo wins inside a text field) ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isEditingText()) return
+      const mod = e.ctrlKey || e.metaKey
+      if (mod && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault()
+        e.shiftKey ? redo() : undo()
+      } else if (mod && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault()
+        redo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages, sources, annotations, formValues, selectedId])
+
   const selected = pages.find((p) => p.id === selectedId) ?? null
   const selectedSrc = selected ? sources.get(selected.srcId) : undefined
   const empty = pages.length === 0
@@ -233,6 +317,10 @@ export default function App() {
         setZoom={setZoom}
         pageCount={pages.length}
         onRotateAll={rotateAll}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={undoStack.current.length > 0}
+        canRedo={redoStack.current.length > 0}
         busy={busy}
       />
 
@@ -279,6 +367,7 @@ export default function App() {
             onRotate={rotatePage}
             onDelete={deletePage}
             onMove={movePage}
+            onReorder={reorderPage}
           />
           {selected && selectedSrc ? (
             <PageEditor
