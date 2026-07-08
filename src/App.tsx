@@ -285,6 +285,13 @@ export default function App() {
     setSelectedId(null)
   }
 
+  // Close the current document and return to the start (main) page.
+  const exitToMain = () => {
+    if (!pages.length) return
+    if (!window.confirm('Exit to the main page? The open document and any edits will be closed.')) return
+    clearAll()
+  }
+
   // Remove every edit (annotations + form entries) but keep the PDF pages.
   const clearAllEdits = () => {
     const hasEdits =
@@ -384,6 +391,8 @@ export default function App() {
         canExport={!empty}
         busy={busy}
         filename={filename}
+        onExit={exitToMain}
+        showExit={!empty}
       />
 
       {!empty && (

@@ -4,7 +4,7 @@
 
 ### Free, private, in-browser PDF editor
 
-Merge, reorder, rotate, and delete PDF pages — then download the result.
+Edit text, sign, fill forms, annotate, merge & reorder — then download.
 **Everything runs in your browser. Your files never leave your device.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -38,16 +38,17 @@ doesn't want to pay for Acrobat or trust a random website.
 - 🗑️ **Delete / extract** pages
 
 **Edit & annotate**
-- ✍️ **Add text** — with live font, **bold/italic**, size, and colour controls
-- ✏️ **Edit existing text** — click a line to replace it, keeping the original font, size & colour
-- 🖊️ **Draw & sign** freehand · 🖍️ **highlight** · ⬜ **whiteout / redact**
+- ✍️ **Add text** — pick from many fonts (Arial, Calibri, Times New Roman…), **bold/italic**, size, and colour
+- ✏️ **Edit existing text** — click a line to replace it; it detects and keeps the original **font, weight, style, size & colour** (incl. LaTeX / Computer Modern documents)
+- 🖊️ **Draw** freehand · 🖍️ **highlight** · ⬜ **whiteout / redact** · 🧽 **eraser** to remove any edit
 - 🖼️ **Insert images** — move & resize (aspect-locked)
 - ✒️ **E-signatures** — draw or type a signature, save it on your device, stamp it anywhere
 - 🧾 **Fill PDF forms** — text fields, checkboxes, radios, dropdowns (flattened on export)
 
 **Workflow**
-- ↩️ **Undo / redo** (Ctrl+Z / Ctrl+Shift+Z) · 🔍 zoom · ⌨️ keyboard page nav
-- 💾 **Download** the edited PDF in one click
+- ↩️ **Undo / redo** (Ctrl+Z / Ctrl+Shift+Z) · 🔍 zoom & fit-width · ⌨️ keyboard page nav
+- 🎨 A clean, professional light UI with a floating page/zoom bar
+- 💾 **Download** the edited PDF in one click · 🧹 **Clear all** edits in one go
 - 🔒 **100% client-side** — no uploads, no accounts, no tracking
 - ⚡ Works **offline** once loaded
 
@@ -107,16 +108,17 @@ Because it's fully static, you can host the `dist/` folder anywhere for free.
 
 ## 🗺️ Roadmap
 
-Good first contributions welcome! See [issues](../../issues).
+Contributions welcome! See [issues](../../issues).
 
-- [ ] Drag-to-reorder thumbnails
-- [ ] Add text & signatures (draw / type)
-- [ ] Insert images onto pages
-- [ ] Extract selected pages to a new file
+- [ ] **Exact-font embedding** — embed the PDF's own font so edited text is pixel-identical
+- [ ] Extract / split selected pages to a new file
+- [ ] Page numbers, watermark & Bates numbering
 - [ ] Password-protect / decrypt PDFs
 - [ ] Compress / optimize file size
-- [ ] Fill PDF form fields
-- [ ] Light theme
+- [ ] OCR — make scanned PDFs searchable & editable
+- [ ] Better mobile / touch experience
+
+**Done:** page tools (merge, drag-reorder, rotate, delete) · add & edit text with font detection · draw, highlight, whiteout, eraser · images · e-signatures · fill forms · undo/redo · light/red UI.
 
 ## 🤝 Contributing
 

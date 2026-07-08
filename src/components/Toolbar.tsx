@@ -6,12 +6,22 @@ interface Props {
   canExport: boolean
   busy: boolean
   filename: string
+  onExit: () => void
+  showExit: boolean
 }
 
 // Replace after publishing if the repo slug changes.
 const REPO_URL = 'https://github.com/mahbub-alam-prithibi/pdf-editor-ultimate'
 
-export function Toolbar({ onOpen, onExport, canExport, busy, filename }: Props) {
+export function Toolbar({
+  onOpen,
+  onExport,
+  canExport,
+  busy,
+  filename,
+  onExit,
+  showExit,
+}: Props) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -41,6 +51,11 @@ export function Toolbar({ onOpen, onExport, canExport, busy, filename }: Props) 
 
       <div className="topbar-right">
         <span className="priv-badge">🔒 Private</span>
+        {showExit && (
+          <button className="btn" onClick={onExit} title="Close this document and return to the start">
+            <Icon name="exit" size={16} /> Exit
+          </button>
+        )}
         <button className="btn" onClick={onOpen}>
           <Icon name="open" size={16} /> Open
         </button>
