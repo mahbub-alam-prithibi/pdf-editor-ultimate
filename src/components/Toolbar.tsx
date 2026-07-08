@@ -56,18 +56,19 @@ export function Toolbar({
         <span className="priv-badge">🔒 Private</span>
         {showExit && (
           <button className="btn" onClick={onExit} title="Close this document and return to the start">
-            <Icon name="exit" size={16} /> Exit
+            <Icon name="exit" size={16} /> <span className="btn-label">Exit</span>
           </button>
         )}
-        <button className="btn" onClick={onOpen}>
-          <Icon name="open" size={16} /> Open
+        <button className="btn" onClick={onOpen} title="Open a PDF">
+          <Icon name="open" size={16} /> <span className="btn-label">Open</span>
         </button>
         <button
           className="btn btn-primary"
           onClick={onExport}
           disabled={!canExport || busy}
+          title="Download the edited PDF"
         >
-          <Icon name="download" size={16} /> Download
+          <Icon name="download" size={16} /> <span className="btn-label">Download</span>
         </button>
         <a
           className="btn ghost icon"

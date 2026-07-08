@@ -120,6 +120,22 @@ export function PageEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitNonce])
 
+  // On phones, auto-fit the page to the screen width once it's rendered.
+  const autoFitDone = useRef(false)
+  useEffect(() => {
+    if (autoFitDone.current || !viewport || !viewerRef.current) return
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return
+    const avail = viewerRef.current.clientWidth - 20
+    if (avail <= 0) return
+    autoFitDone.current = true
+    const next = Math.min(
+      4,
+      Math.max(0.25, Math.round(((zoom * avail) / viewport.width) * 100) / 100),
+    )
+    if (Math.abs(next - zoom) > 0.02) setZoom(next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewport])
+
   // Escape deselects / stops editing the current text box.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -763,7 +779,17 @@ export function PageEditor({
         <div
           ref={surfaceRef}
           className="edit-surface"
-          style={{ cursor, pointerEvents: 'auto' }}
+          style={{
+            cursor,
+            pointerEvents: 'auto',
+            touchAction:
+              tool === 'draw' ||
+              tool === 'highlight' ||
+              tool === 'whiteout' ||
+              tool === 'eraser'
+                ? 'none'
+                : 'auto',
+          }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

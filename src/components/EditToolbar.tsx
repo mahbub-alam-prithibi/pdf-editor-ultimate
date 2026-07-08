@@ -152,7 +152,7 @@ export function EditToolbar({
         disabled={!canClear}
         title="Remove all edits from the document"
       >
-        <Icon name="trash" size={16} /> Clear all
+        <Icon name="trash" size={16} /> <span className="btn-label">Clear all</span>
       </button>
     </div>
   )

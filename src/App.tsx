@@ -40,7 +40,9 @@ export default function App() {
   const [zoom, setZoom] = useState(1)
   const [busy, setBusy] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const [showThumbs, setShowThumbs] = useState(true)
+  const [showThumbs, setShowThumbs] = useState(
+    () => typeof window === 'undefined' || window.innerWidth >= 768,
+  )
   const [fitNonce, setFitNonce] = useState(0)
 
   // Editing state
