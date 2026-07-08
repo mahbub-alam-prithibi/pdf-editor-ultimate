@@ -382,6 +382,119 @@ body {
   cursor: pointer;
 }
 
+/* ---------- Custom colour picker (no native OS dialog) ---------- */
+.cp {
+  position: relative;
+  display: inline-flex;
+}
+
+.cp-trigger {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(
+    from 90deg,
+    #ff0000,
+    #ff9900,
+    #ffff00,
+    #33cc33,
+    #00cccc,
+    #3366ff,
+    #cc33ff,
+    #ff0000
+  );
+}
+
+.cp-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.cp-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  padding: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+}
+
+.cp-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.cp-c {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cp-c.light {
+  border-color: var(--border-strong);
+}
+
+.cp-c.active {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.cp-hex {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.cp-preview {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  flex-shrink: 0;
+}
+
+.cp-hash {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.cp-input {
+  flex: 1;
+  min-width: 72px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 5px 7px;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 13px;
+  outline: none;
+  color: var(--text);
+  background: var(--bg-panel);
+}
+
+.cp-input:focus {
+  border-color: var(--accent);
+}
+
 .range-field {
   display: flex;
   align-items: center;

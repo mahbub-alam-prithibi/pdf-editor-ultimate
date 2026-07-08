@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 
 interface Props {
@@ -15,8 +15,15 @@ interface Props {
 
 const norm = (deg: number) => ((deg % 360) + 360) % 360
 
-/** Renders a single PDF page to a crisp <canvas>, cancelling stale renders. */
-export function PdfCanvas({ doc, pageIndex, rotation, scale, fitWidth }: Props) {
+/** Renders a single PDF page to a crisp <canvas>, cancelling stale renders.
+ *  Memoised so unrelated state (e.g. the active tool colour) never re-renders it. */
+export const PdfCanvas = memo(function PdfCanvas({
+  doc,
+  pageIndex,
+  rotation,
+  scale,
+  fitWidth,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -63,4 +70,4 @@ export function PdfCanvas({ doc, pageIndex, rotation, scale, fitWidth }: Props) 
   }, [doc, pageIndex, rotation, scale, fitWidth])
 
   return <canvas ref={canvasRef} className="pdf-canvas" />
-}
+})

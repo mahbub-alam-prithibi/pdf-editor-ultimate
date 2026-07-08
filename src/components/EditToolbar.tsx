@@ -1,6 +1,7 @@
 import type { Tool } from '../lib/types'
 import { Icon } from './icons'
 import { PALETTE } from '../lib/fonts'
+import { ColorPicker } from './ColorPicker'
 
 interface Props {
   tool: Tool
@@ -114,9 +115,7 @@ export function EditToolbar({
                 aria-label={`Colour ${c}`}
               />
             ))}
-            <label className="swatch-custom" title="Custom RGB colour">
-              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
-            </label>
+            <ColorPicker value={color} onChange={setColor} />
           </div>
         )}
         {(tool === 'draw' || tool === 'highlight' || tool === 'whiteout') && (

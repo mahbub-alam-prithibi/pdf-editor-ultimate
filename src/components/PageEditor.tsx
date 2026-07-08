@@ -14,6 +14,7 @@ import type {
   Tool,
 } from '../lib/types'
 import { FONTS, PALETTE, cssForFont, parsePdfFontName } from '../lib/fonts'
+import { ColorPicker } from './ColorPicker'
 
 interface TextItemInfo {
   str: string
@@ -1000,13 +1001,7 @@ function TextBox({
                     aria-label={`Colour ${c}`}
                   />
                 ))}
-                <label className="color-sw color-custom" title="Custom RGB colour">
-                  <input
-                    type="color"
-                    value={ann.color}
-                    onChange={(e) => onColor(e.target.value)}
-                  />
-                </label>
+                <ColorPicker value={ann.color} onChange={onColor} />
               </div>
             )}
           </div>
