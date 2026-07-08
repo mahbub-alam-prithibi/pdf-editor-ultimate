@@ -46,7 +46,7 @@ export default function App() {
   // Editing state
   const [annotations, setAnnotations] = useState<AnnotationMap>({})
   const [tool, setTool] = useState<Tool>('select')
-  const [color, setColor] = useState('#e5484d')
+  const [color, setColor] = useState('#000000')
   const [strokeWidth, setStrokeWidth] = useState(3)
   const [textSize, setTextSize] = useState(16)
   // Form field values, keyed by `${srcId}::${fieldName}`.
@@ -125,6 +125,7 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
 
   // ---- undo / redo history (structural changes) ----
   const undoStack = useRef<Snapshot[]>([])
@@ -284,6 +285,23 @@ export default function App() {
     setSelectedId(null)
   }
 
+  // Remove every edit (annotations + form entries) but keep the PDF pages.
+  const clearAllEdits = () => {
+    const hasEdits =
+      Object.values(annotations).some((a) => a.length > 0) ||
+      Object.keys(formValues).length > 0
+    if (!hasEdits) return
+    if (
+      !window.confirm(
+        'Remove ALL edits (text, drawings, highlights, signatures, images and form entries) from this document? The original PDF pages stay.',
+      )
+    )
+      return
+    snapshot()
+    setAnnotations({})
+    setFormValues({})
+  }
+
   // ---- drag & drop ----
   useEffect(() => {
     const onDrop = (e: DragEvent) => {
@@ -382,12 +400,15 @@ export default function App() {
           onRedo={redo}
           canUndo={undoStack.current.length > 0}
           canRedo={redoStack.current.length > 0}
-          onRotateLeft={() => rotateSelected(-90)}
-          onRotateRight={() => rotateSelected(90)}
           onToggleThumbs={() => setShowThumbs((v) => !v)}
           thumbsShown={showThumbs}
           onSign={() => setShowSigPad(true)}
           signing={tool === 'signature'}
+          onClearEdits={clearAllEdits}
+          canClear={
+            Object.values(annotations).some((a) => a.length > 0) ||
+            Object.keys(formValues).length > 0
+          }
         />
       )}
 
@@ -466,6 +487,8 @@ export default function App() {
           zoom={zoom}
           setZoom={setZoom}
           onFit={() => setFitNonce((n) => n + 1)}
+          onRotateLeft={() => rotateSelected(-90)}
+          onRotateRight={() => rotateSelected(90)}
         />
       )}
 

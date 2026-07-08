@@ -13,6 +13,7 @@ import type {
   TextFont,
   Tool,
 } from '../lib/types'
+import { FONTS, PALETTE, cssForFont, parsePdfFontName } from '../lib/fonts'
 
 interface TextItemInfo {
   str: string
@@ -86,6 +87,7 @@ export function PageEditor({
   const viewerRef = useRef<HTMLDivElement>(null)
   const imgInputRef = useRef<HTMLInputElement>(null)
   const drawing = useRef(false)
+  const erasing = useRef(false)
   const pendingImgPt = useRef<{ x: number; y: number } | null>(null)
   const textItemsRef = useRef<{ pageId: string; items: TextItemInfo[] } | null>(null)
   const dragState = useRef<
@@ -160,8 +162,58 @@ export function PageEditor({
   const setTextFont = (id: string, partial: Partial<TextFont>) => {
     const a = annotations.find((x) => x.id === id)
     if (!a || a.type !== 'text') return
-    const cur = a.font ?? { family: 'sans', bold: false, italic: false }
+    const cur = a.font ?? { family: 'Helvetica', bold: false, italic: false }
     patch(id, { font: { ...cur, ...partial } })
+  }
+
+  // ----- eraser: remove any annotation under the cursor -----
+  const distToSeg = (
+    p: { x: number; y: number },
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+  ) => {
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len2 = dx * dx + dy * dy
+    if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y)
+    let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2
+    t = Math.max(0, Math.min(1, t))
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+  }
+  const annHitByPoint = (a: Annotation, pt: { x: number; y: number }, tol: number): boolean => {
+    if (a.type === 'highlight' || a.type === 'whiteout' || a.type === 'image') {
+      return (
+        pt.x >= Math.min(a.x0, a.x1) - tol &&
+        pt.x <= Math.max(a.x0, a.x1) + tol &&
+        pt.y >= Math.min(a.y0, a.y1) - tol &&
+        pt.y <= Math.max(a.y0, a.y1) + tol
+      )
+    }
+    if (a.type === 'text') {
+      const lines = a.text.split('\n')
+      const maxLen = Math.max(1, ...lines.map((l) => l.length))
+      const w = maxLen * a.size * 0.55
+      const h = Math.max(1, lines.length) * a.size * 1.2
+      return (
+        pt.x >= a.x - tol &&
+        pt.x <= a.x + w + tol &&
+        pt.y <= a.yTop + tol &&
+        pt.y >= a.yTop - h - tol
+      )
+    }
+    if (a.type === 'draw') {
+      const th = a.width / 2 + tol + 2
+      if (a.pts.length === 1) return Math.hypot(pt.x - a.pts[0].x, pt.y - a.pts[0].y) < th
+      for (let i = 1; i < a.pts.length; i++) {
+        if (distToSeg(pt, a.pts[i - 1], a.pts[i]) < th) return true
+      }
+    }
+    return false
+  }
+  const eraseAt = (pt: { x: number; y: number }) => {
+    const tol = 8 / scale
+    const next = annotations.filter((a) => !annHitByPoint(a, pt, tol))
+    if (next.length !== annotations.length) onChange(next)
   }
 
   // Text runs on the page (PDF coords), for the "Edit text" tool. Cached per page.
@@ -179,27 +231,19 @@ export function PageEditor({
     const styles = (tc as any).styles || {}
 
     const detectFont = (fontName: string): TextFont => {
-      const famStr = String(styles[fontName]?.fontFamily || '').toLowerCase()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let fo: any = null
       try {
         fo = p.commonObjs.get(fontName)
       } catch {
-        /* not resolved — fall back to the family string only */
+        /* not resolved — fall back to the style's family string */
       }
-      const psName = String(fo?.name || '').toLowerCase()
-      const s = `${psName} ${famStr}`
-      let family: TextFont['family'] = 'sans'
-      if (/courier|mono|consol/.test(s) || famStr.includes('monospace')) family = 'mono'
-      else if (
-        /times|georgia|garamond|roman|minion|cambria|book|serif/.test(psName) ||
-        (famStr.includes('serif') && !famStr.includes('sans'))
-      )
-        family = 'serif'
-      // Prefer the font's own flags; fall back to parsing its name.
-      const bold = !!(fo?.bold || fo?.black) || /bold|black|heavy|semibold/.test(s)
-      const italic = !!fo?.italic || /italic|oblique/.test(s)
-      return { family, bold, italic }
+      const psName = String(fo?.name || styles[fontName]?.fontFamily || '')
+      const parsed = parsePdfFontName(psName)
+      // Prefer the font object's own flags (most reliable); OR the parsed name.
+      const bold = !!(fo?.bold || fo?.black) || parsed.bold
+      const italic = !!fo?.italic || parsed.italic
+      return { family: parsed.family, bold, italic }
     }
 
     const items: TextItemInfo[] = tc.items
@@ -394,6 +438,12 @@ export function PageEditor({
       })()
       return
     }
+    if (tool === 'eraser') {
+      erasing.current = true
+      ;(e.target as Element).setPointerCapture?.(e.pointerId)
+      eraseAt(pt)
+      return
+    }
     if (tool === 'image') {
       pendingImgPt.current = pt
       imgInputRef.current?.click()
@@ -482,6 +532,11 @@ export function PageEditor({
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
+    if (erasing.current) {
+      const pt = toPdf(e.clientX, e.clientY)
+      if (pt) eraseAt(pt)
+      return
+    }
     if (!drawing.current || !draft) return
     const pt = toPdf(e.clientX, e.clientY)
     if (!pt) return
@@ -493,6 +548,10 @@ export function PageEditor({
   }
 
   const onPointerUp = () => {
+    if (erasing.current) {
+      erasing.current = false
+      return
+    }
     if (!drawing.current || !draft) {
       drawing.current = false
       return
@@ -802,6 +861,7 @@ function TextBox({
   onFont,
 }: TextBoxProps) {
   const ref = useRef<HTMLTextAreaElement>(null)
+  const [showColors, setShowColors] = useState(false)
 
   // Grow the textarea to fit its content (fallback for browsers without
   // CSS field-sizing).
@@ -844,12 +904,18 @@ function TextBox({
           <select
             className="tb-tool tb-select"
             title="Font"
-            value={ann.font?.family ?? 'sans'}
-            onChange={(e) => onFont({ family: e.target.value as TextFont['family'] })}
+            value={ann.font?.family ?? 'Helvetica'}
+            onChange={(e) => onFont({ family: e.target.value })}
           >
-            <option value="sans">Sans</option>
-            <option value="serif">Serif</option>
-            <option value="mono">Mono</option>
+            {ann.font?.family &&
+              !FONTS.some((f) => f.name.toLowerCase() === ann.font!.family.toLowerCase()) && (
+                <option value={ann.font.family}>{ann.font.family} (detected)</option>
+              )}
+            {FONTS.map((f) => (
+              <option key={f.name} value={f.name} style={{ fontFamily: f.css }}>
+                {f.name}
+              </option>
+            ))}
           </select>
           <button
             className={`tb-tool${ann.font?.bold ? ' on' : ''}`}
@@ -872,14 +938,40 @@ function TextBox({
           <button className="tb-tool" title="Bigger" onClick={() => onResize(1)}>
             A+
           </button>
-          <label className="tb-tool tb-color" title="Text colour">
-            <span className="tb-color-dot" style={{ background: ann.color }} />
-            <input
-              type="color"
-              value={ann.color}
-              onChange={(e) => onColor(e.target.value)}
-            />
-          </label>
+          <div className="tb-color-wrap">
+            <button
+              className="tb-tool tb-color-btn"
+              title="Text colour"
+              onClick={() => setShowColors((v) => !v)}
+            >
+              <span className="tb-color-dot" style={{ background: ann.color }} />
+            </button>
+            {showColors && (
+              <div className="color-pop">
+                {PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    className={`color-sw${c === '#ffffff' ? ' light' : ''}${
+                      ann.color.toLowerCase() === c ? ' active' : ''
+                    }`}
+                    style={{ background: c }}
+                    onClick={() => {
+                      onColor(c)
+                      setShowColors(false)
+                    }}
+                    aria-label={`Colour ${c}`}
+                  />
+                ))}
+                <label className="color-sw color-custom" title="Custom RGB colour">
+                  <input
+                    type="color"
+                    value={ann.color}
+                    onChange={(e) => onColor(e.target.value)}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
           <button className="tb-tool del" title="Delete" onClick={onDelete}>
             ✕
           </button>
@@ -898,12 +990,7 @@ function TextBox({
           fontSize: ann.size * scale,
           color: ann.color,
           lineHeight: 1.15,
-          fontFamily:
-            ann.font?.family === 'serif'
-              ? '"Times New Roman", Times, serif'
-              : ann.font?.family === 'mono'
-                ? '"Courier New", Courier, monospace'
-                : 'Helvetica, Arial, sans-serif',
+          fontFamily: cssForFont(ann.font?.family),
           fontWeight: ann.font?.bold ? 700 : 400,
           fontStyle: ann.font?.italic ? 'italic' : 'normal',
         }}

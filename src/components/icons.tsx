@@ -45,6 +45,21 @@ const PATHS: Record<string, JSX.Element> = {
       <path d="M3 20h18" />
     </>
   ),
+  eraser: (
+    <>
+      <path d="M7 21l-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+      <path d="M22 21H7" />
+      <path d="M5 11l9 9" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2" />
+      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </>
+  ),
   undo: (
     <>
       <path d="M9 14L4 9l5-5" />

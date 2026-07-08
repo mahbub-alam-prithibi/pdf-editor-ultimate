@@ -1,5 +1,6 @@
 import type { Tool } from '../lib/types'
 import { Icon } from './icons'
+import { PALETTE } from '../lib/fonts'
 
 interface Props {
   tool: Tool
@@ -14,12 +15,12 @@ interface Props {
   onRedo: () => void
   canUndo: boolean
   canRedo: boolean
-  onRotateLeft: () => void
-  onRotateRight: () => void
   onToggleThumbs: () => void
   thumbsShown: boolean
   onSign: () => void
   signing: boolean
+  onClearEdits: () => void
+  canClear: boolean
 }
 
 const TOOLS: { id: Tool; label: string; icon: string; hint: string }[] = [
@@ -30,9 +31,8 @@ const TOOLS: { id: Tool; label: string; icon: string; hint: string }[] = [
   { id: 'highlight', label: 'Highlight', icon: 'highlight', hint: 'Drag to highlight' },
   { id: 'whiteout', label: 'Whiteout', icon: 'whiteout', hint: 'Cover / redact' },
   { id: 'image', label: 'Image', icon: 'image', hint: 'Place an image' },
+  { id: 'eraser', label: 'Eraser', icon: 'eraser', hint: 'Erase drawings & edits (click or drag)' },
 ]
-
-const SWATCHES = ['#000000', '#e01e26', '#f5a623', '#f7d117', '#2ca24c', '#1f6feb', '#8e4ec6', '#ffffff']
 
 export function EditToolbar({
   tool,
@@ -47,12 +47,12 @@ export function EditToolbar({
   onRedo,
   canUndo,
   canRedo,
-  onRotateLeft,
-  onRotateRight,
   onToggleThumbs,
   thumbsShown,
   onSign,
   signing,
+  onClearEdits,
+  canClear,
 }: Props) {
   const showColor =
     tool === 'text' || tool === 'draw' || tool === 'highlight' || tool === 'whiteout'
@@ -73,12 +73,6 @@ export function EditToolbar({
         </button>
         <button className="tbtn compact" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
           <Icon name="redo" />
-        </button>
-        <button className="tbtn compact" onClick={onRotateLeft} title="Rotate page left">
-          <Icon name="rotateLeft" />
-        </button>
-        <button className="tbtn compact" onClick={onRotateRight} title="Rotate page right">
-          <Icon name="rotateRight" />
         </button>
       </div>
 
@@ -109,7 +103,7 @@ export function EditToolbar({
       <div className="tool-props">
         {showColor && (
           <div className="swatches" title="Colour">
-            {SWATCHES.map((c) => (
+            {PALETTE.map((c) => (
               <button
                 key={c}
                 className={`swatch${color.toLowerCase() === c ? ' active' : ''}${
@@ -120,13 +114,9 @@ export function EditToolbar({
                 aria-label={`Colour ${c}`}
               />
             ))}
-            <input
-              type="color"
-              className="swatch-custom"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              title="Custom colour"
-            />
+            <label className="swatch-custom" title="Custom RGB colour">
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+            </label>
           </div>
         )}
         {(tool === 'draw' || tool === 'highlight' || tool === 'whiteout') && (
@@ -155,6 +145,15 @@ export function EditToolbar({
           </label>
         )}
       </div>
+
+      <button
+        className="btn clear-btn"
+        onClick={onClearEdits}
+        disabled={!canClear}
+        title="Remove all edits from the document"
+      >
+        <Icon name="trash" size={16} /> Clear all
+      </button>
     </div>
   )
 }

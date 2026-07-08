@@ -8,11 +8,23 @@ interface Props {
   zoom: number
   setZoom: (z: number) => void
   onFit: () => void
+  onRotateLeft: () => void
+  onRotateRight: () => void
 }
 
 const clamp = (z: number) => Math.min(4, Math.max(0.25, Math.round(z * 100) / 100))
 
-export function BottomBar({ pageIndex, total, onPrev, onNext, zoom, setZoom, onFit }: Props) {
+export function BottomBar({
+  pageIndex,
+  total,
+  onPrev,
+  onNext,
+  zoom,
+  setZoom,
+  onFit,
+  onRotateLeft,
+  onRotateRight,
+}: Props) {
   return (
     <div className="bottom-bar">
       <button className="bb-btn" onClick={onPrev} disabled={pageIndex <= 1} title="Previous page">
@@ -28,6 +40,15 @@ export function BottomBar({ pageIndex, total, onPrev, onNext, zoom, setZoom, onF
         title="Next page"
       >
         <Icon name="chevRight" size={18} />
+      </button>
+
+      <div className="bb-sep" />
+
+      <button className="bb-btn" onClick={onRotateLeft} title="Rotate page left">
+        <Icon name="rotateLeft" size={18} />
+      </button>
+      <button className="bb-btn" onClick={onRotateRight} title="Rotate page right">
+        <Icon name="rotateRight" size={18} />
       </button>
 
       <div className="bb-sep" />

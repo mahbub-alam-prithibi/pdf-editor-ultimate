@@ -1,14 +1,16 @@
 import { PDFDocument, degrees, StandardFonts, BlendMode } from 'pdf-lib'
 import { hexToRgb } from './color'
+import { fontCat } from './fonts'
 import type { AnnotationMap, PageItem, SourceDoc, TextFont } from './types'
 
 const norm = (deg: number) => ((deg % 360) + 360) % 360
 
-/** Map a detected/selected font to the closest PDF standard font. */
+/** Map a named/detected font to the closest standard PDF font (by category + style). */
 function pickStdFont(f?: TextFont): StandardFonts {
   const b = f?.bold
   const i = f?.italic
-  if (f?.family === 'serif') {
+  const cat = fontCat(f?.family)
+  if (cat === 'serif') {
     return b && i
       ? StandardFonts.TimesRomanBoldItalic
       : b
@@ -17,7 +19,7 @@ function pickStdFont(f?: TextFont): StandardFonts {
           ? StandardFonts.TimesRomanItalic
           : StandardFonts.TimesRoman
   }
-  if (f?.family === 'mono') {
+  if (cat === 'mono') {
     return b && i
       ? StandardFonts.CourierBoldOblique
       : b

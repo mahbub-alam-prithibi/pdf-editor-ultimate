@@ -30,6 +30,7 @@ export type Tool =
   | 'whiteout'
   | 'image'
   | 'signature'
+  | 'eraser'
 
 /**
  * Annotations are stored in the page's native PDF coordinate space
@@ -37,7 +38,8 @@ export type Tool =
  * independent of zoom and rotation, and maps directly onto pdf-lib at export.
  */
 export interface TextFont {
-  family: 'sans' | 'serif' | 'mono'
+  /** Font family name, e.g. "Arial", "Times New Roman". */
+  family: string
   bold: boolean
   italic: boolean
 }

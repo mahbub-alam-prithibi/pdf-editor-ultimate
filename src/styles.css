@@ -187,6 +187,17 @@ body {
   color: var(--text);
 }
 
+.clear-btn {
+  color: var(--danger);
+  border-color: rgba(224, 30, 38, 0.4);
+  margin-left: 8px;
+}
+
+.clear-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
 /* ============ Tool toolbar ============ */
 .edit-toolbar {
   display: flex;
@@ -292,12 +303,64 @@ body {
 }
 
 .swatch-custom {
-  width: 24px;
-  height: 24px;
+  position: relative;
+  width: 20px;
+  height: 20px;
   padding: 0;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: none;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  display: inline-block;
+  background: conic-gradient(
+    from 90deg,
+    #ff0000,
+    #ff9900,
+    #ffff00,
+    #33cc33,
+    #00cccc,
+    #3366ff,
+    #cc33ff,
+    #ff0000
+  );
+}
+
+.swatch-custom input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.color-custom {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--border-strong);
+  background: conic-gradient(
+    from 90deg,
+    #ff0000,
+    #ff9900,
+    #ffff00,
+    #33cc33,
+    #00cccc,
+    #3366ff,
+    #cc33ff,
+    #ff0000
+  );
+}
+
+.color-custom input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 0;
   cursor: pointer;
 }
 
@@ -620,6 +683,51 @@ body {
   border: none;
   padding: 0;
   cursor: pointer;
+}
+
+.tb-color-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tb-color-btn {
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.color-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  z-index: 6;
+}
+
+.color-sw {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-sw.light {
+  border-color: var(--border-strong);
+}
+
+.color-sw.active {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 /* ============ Image selection ============ */
