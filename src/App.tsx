@@ -42,9 +42,10 @@ export default function App() {
   const [dragOver, setDragOver] = useState(false)
   const [showThumbs, setShowThumbs] = useState(() => {
     if (typeof window === 'undefined') return true
-    // Hidden by default only on real touch phones; desktop always shows it.
-    const touchPhone = navigator.maxTouchPoints > 0 && window.innerWidth < 820
-    return !touchPhone
+    // Hidden by default only on real phones (coarse pointer); desktops (incl.
+    // touch-screen laptops with a mouse) always show it.
+    const phone = window.matchMedia('(pointer: coarse) and (max-width: 820px)').matches
+    return !phone
   })
   const [fitNonce, setFitNonce] = useState(0)
 

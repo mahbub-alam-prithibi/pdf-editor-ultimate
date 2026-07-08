@@ -6,8 +6,6 @@ interface Props {
   onChange: (hex: string) => void
 }
 
-const HAS_EYEDROPPER = typeof window !== 'undefined' && 'EyeDropper' in window
-
 const QUICK = [
   '#000000', '#5f6368', '#ffffff', '#e01e26', '#ff8a00', '#f7c600',
   '#1aa64b', '#00a3a3', '#1f6feb', '#6b3fd4', '#e91e8c', '#8d5a2b',
@@ -49,6 +47,11 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 
 export function ColorPicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false)
+  const [picking, setPicking] = useState(false)
+  // Keep the latest onChange without re-running the picking effect (avoids
+  // dropping the pick if the parent re-renders mid-pick).
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
   const [hsv, setHsv] = useState<[number, number, number]>(() => {
     const rgb = hexToRgb(value) ?? [0, 0, 0]
     return rgbToHsv(...rgb)
@@ -81,13 +84,57 @@ export function ColorPicker({ value, onChange }: Props) {
     return () => document.removeEventListener('mousedown', onDown)
   }, [open])
 
+  // Throttle live updates during a drag so a large document isn't re-rendered
+  // ~100x/second (which saturated the main thread and froze the tab).
+  const emitState = useRef<{ last: number; pending: string | null; timer: number }>({
+    last: 0,
+    pending: null,
+    timer: 0,
+  })
+  const scheduleEmit = (hex: string) => {
+    const st = emitState.current
+    st.pending = hex
+    const elapsed = Date.now() - st.last
+    if (elapsed >= 55) {
+      st.last = Date.now()
+      st.pending = null
+      onChange(hex)
+    } else if (!st.timer) {
+      st.timer = window.setTimeout(() => {
+        st.timer = 0
+        st.last = Date.now()
+        const p = st.pending
+        st.pending = null
+        if (p) onChange(p)
+      }, 55 - elapsed)
+    }
+  }
+  const flushEmit = () => {
+    const st = emitState.current
+    if (st.timer) {
+      clearTimeout(st.timer)
+      st.timer = 0
+    }
+    if (st.pending) {
+      onChange(st.pending)
+      st.pending = null
+    }
+    st.last = Date.now()
+  }
+  useEffect(
+    () => () => {
+      if (emitState.current.timer) clearTimeout(emitState.current.timer)
+    },
+    [],
+  )
+
   const apply = (h: number, s: number, v: number) => {
     const next: [number, number, number] = [h, s, v]
     setHsv(next)
     hsvRef.current = next
     const hex = rgbToHex(...hsvToRgb(h, s, v))
     setHexText(hex.replace('#', ''))
-    onChange(hex)
+    scheduleEmit(hex)
   }
 
   const pickSV = (clientX: number, clientY: number) => {
@@ -110,6 +157,8 @@ export function ColorPicker({ value, onChange }: Props) {
     else if (dragRef.current === 'hue') pickHue(e.clientX)
   }
   const endDrag = () => {
+    // Commit the final colour immediately (a throttle timer may still be pending).
+    if (dragRef.current) flushEmit()
     dragRef.current = null
   }
 
@@ -119,20 +168,68 @@ export function ColorPicker({ value, onChange }: Props) {
     else setHexText(value.replace('#', ''))
   }
 
-  // Native eyedropper — pick an exact pixel from anywhere on screen (incl. the PDF).
-  const pickFromScreen = async () => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const ed = new (window as any).EyeDropper()
-      const res = await ed.open()
-      if (res?.sRGBHex) {
-        onChange(res.sRGBHex)
-        setOpen(false)
+  // In-page eyedropper: read the exact pixel colour straight from the PDF's own
+  // <canvas> (and any annotations drawn over it). This replaces the native
+  // `EyeDropper` API, whose screen-capture magnifier locks the browser on some
+  // Windows/GPU setups. Reading the canvas is pure JS — it cannot hang Chrome,
+  // and it's more accurate (true PDF pixel, not a screen-scaled sample).
+  const readPixelAt = (clientX: number, clientY: number): string | null => {
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null
+    const shell = el?.closest('.page-shell') ?? el?.closest('.thumb') ?? null
+    if (!shell) return null
+    const sample = (canvas: HTMLCanvasElement | null) => {
+      if (!canvas) return null
+      const r = canvas.getBoundingClientRect()
+      if (clientX < r.left || clientX >= r.right || clientY < r.top || clientY >= r.bottom) return null
+      const px = Math.floor((clientX - r.left) * (canvas.width / r.width))
+      const py = Math.floor((clientY - r.top) * (canvas.height / r.height))
+      try {
+        return canvas.getContext('2d')!.getImageData(px, py, 1, 1).data
+      } catch {
+        return null
       }
-    } catch {
-      /* user cancelled */
     }
+    // Prefer a painted annotation pixel (whiteout/highlight/drawing) if one sits
+    // here; otherwise read the underlying PDF pixel.
+    const ann = sample(shell.querySelector('.ann-canvas'))
+    if (ann && ann[3] > 10) return rgbToHex(ann[0], ann[1], ann[2])
+    const pdf = sample(shell.querySelector('.pdf-canvas'))
+    if (pdf) return rgbToHex(pdf[0], pdf[1], pdf[2])
+    return null
   }
+
+  const startPagePick = () => {
+    setOpen(false) // hide the popover so the page is fully clickable
+    setPicking(true)
+  }
+
+  useEffect(() => {
+    if (!picking) return
+    const prevCursor = document.body.style.cursor
+    document.body.style.cursor = 'crosshair'
+    const onDown = (e: PointerEvent) => {
+      // Capture phase + stop propagation so the page's own tools (draw / whiteout)
+      // don't also fire on this click.
+      e.preventDefault()
+      e.stopPropagation()
+      const hex = readPixelAt(e.clientX, e.clientY)
+      if (hex) onChangeRef.current(hex)
+      setPicking(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setPicking(false)
+      }
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('keydown', onKey, true)
+      document.body.style.cursor = prevCursor
+    }
+  }, [picking])
 
   const [hue, sat, val] = hsv
   const current = rgbToHex(...hsvToRgb(hue, sat, val))
@@ -183,11 +280,9 @@ export function ColorPicker({ value, onChange }: Props) {
             <div className="cp-hue-thumb" style={{ left: `${(hue / 360) * 100}%` }} />
           </div>
 
-          {HAS_EYEDROPPER && (
-            <button type="button" className="cp-eyedrop" onClick={pickFromScreen}>
-              <Icon name="eyedropper" size={15} /> Pick colour from page
-            </button>
-          )}
+          <button type="button" className="cp-eyedrop" onClick={startPagePick}>
+            <Icon name="eyedropper" size={15} /> Pick colour from page
+          </button>
 
           <div className="cp-swatches">
             {QUICK.map((c) => (
@@ -221,6 +316,11 @@ export function ColorPicker({ value, onChange }: Props) {
               }}
             />
           </div>
+        </div>
+      )}
+      {picking && (
+        <div className="cp-pick-hint">
+          <Icon name="eyedropper" size={14} /> Click any colour on the page · Esc to cancel
         </div>
       )}
     </div>

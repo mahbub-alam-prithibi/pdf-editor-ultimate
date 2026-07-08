@@ -547,6 +547,26 @@ body {
   color: var(--accent);
 }
 
+/* Floating hint shown while the in-page eyedropper is active. */
+.cp-pick-hint {
+  position: fixed;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
 .cp-hex {
   display: flex;
   align-items: center;

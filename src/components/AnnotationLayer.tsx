@@ -22,10 +22,17 @@ export function AnnotationLayer({ viewport, annotations, draft }: Props) {
     const canvas = canvasRef.current
     if (!canvas) return
     const dpr = window.devicePixelRatio || 1
-    canvas.width = Math.floor(viewport.width * dpr)
-    canvas.height = Math.floor(viewport.height * dpr)
-    canvas.style.width = `${Math.floor(viewport.width)}px`
-    canvas.style.height = `${Math.floor(viewport.height)}px`
+    // Reassigning canvas.width/height reallocates + clears the backing store, which
+    // is costly to do on every pointer move while drawing. Only resize when it
+    // actually changes (i.e. zoom/rotation), not on each draft update.
+    const w = Math.floor(viewport.width * dpr)
+    const h = Math.floor(viewport.height * dpr)
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w
+      canvas.height = h
+      canvas.style.width = `${Math.floor(viewport.width)}px`
+      canvas.style.height = `${Math.floor(viewport.height)}px`
+    }
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
