@@ -8,6 +8,7 @@ import { ThumbnailSidebar } from './components/ThumbnailSidebar'
 import { PageEditor } from './components/PageEditor'
 import { Dropzone } from './components/Dropzone'
 import { SignaturePad } from './components/SignaturePad'
+import { BottomBar } from './components/BottomBar'
 
 const uid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -39,6 +40,8 @@ export default function App() {
   const [zoom, setZoom] = useState(1)
   const [busy, setBusy] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [showThumbs, setShowThumbs] = useState(true)
+  const [fitNonce, setFitNonce] = useState(0)
 
   // Editing state
   const [annotations, setAnnotations] = useState<AnnotationMap>({})
@@ -258,7 +261,9 @@ export default function App() {
     setBusy(true)
     try {
       const bytes = await buildPdf(pages, sources, annotations, formValues)
-      downloadPdf(bytes, 'pdfly-export.pdf')
+      const first = sources.size ? [...sources.values()][0].name : 'document'
+      const base = first.replace(/\.pdf$/i, '') || 'document'
+      downloadPdf(bytes, `${base}-edited.pdf`)
     } catch (err) {
       console.error(err)
       alert('Export failed. See the browser console for details.')
@@ -338,24 +343,26 @@ export default function App() {
   const selected = pages.find((p) => p.id === selectedId) ?? null
   const selectedSrc = selected ? sources.get(selected.srcId) : undefined
   const empty = pages.length === 0
-  const pageAnnCount = selectedId ? (annotations[selectedId]?.length ?? 0) : 0
+  const selectedIndex = pages.findIndex((p) => p.id === selectedId)
+  const filename = selectedSrc?.name ?? (pages[0] && sources.get(pages[0].srcId)?.name) ?? ''
+
+  const goToPage = (delta: number) => {
+    if (selectedIndex < 0) return
+    const ni = Math.min(pages.length - 1, Math.max(0, selectedIndex + delta))
+    setSelectedId(pages[ni].id)
+  }
+  const rotateSelected = (delta: number) => {
+    if (selectedId) rotatePage(selectedId, delta)
+  }
 
   return (
     <div className={`app${dragOver ? ' dragging' : ''}`}>
       <Toolbar
         onOpen={() => fileInputRef.current?.click()}
         onExport={exportPdf}
-        onClear={clearAll}
         canExport={!empty}
-        zoom={zoom}
-        setZoom={setZoom}
-        pageCount={pages.length}
-        onRotateAll={rotateAll}
-        onUndo={undo}
-        onRedo={redo}
-        canUndo={undoStack.current.length > 0}
-        canRedo={redoStack.current.length > 0}
         busy={busy}
+        filename={filename}
       />
 
       {!empty && (
@@ -368,9 +375,14 @@ export default function App() {
           setStrokeWidth={setStrokeWidth}
           textSize={textSize}
           setTextSize={setTextSize}
-          onUndo={undoOnPage}
-          onClearPage={clearPageAnns}
-          canUndo={pageAnnCount > 0}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={undoStack.current.length > 0}
+          canRedo={redoStack.current.length > 0}
+          onRotateLeft={() => rotateSelected(-90)}
+          onRotateRight={() => rotateSelected(90)}
+          onToggleThumbs={() => setShowThumbs((v) => !v)}
+          thumbsShown={showThumbs}
           onSign={() => setShowSigPad(true)}
           signing={tool === 'signature'}
         />
@@ -405,22 +417,26 @@ export default function App() {
         />
       ) : (
         <div className="workspace">
-          <ThumbnailSidebar
-            pages={pages}
-            sources={sources}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onRotate={rotatePage}
-            onDelete={deletePage}
-            onMove={movePage}
-            onReorder={reorderPage}
-          />
+          {showThumbs && (
+            <ThumbnailSidebar
+              pages={pages}
+              sources={sources}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onRotate={rotatePage}
+              onDelete={deletePage}
+              onMove={movePage}
+              onReorder={reorderPage}
+            />
+          )}
           {selected && selectedSrc ? (
             <PageEditor
               key={selected.id}
               page={selected}
               src={selectedSrc}
               zoom={zoom}
+              setZoom={setZoom}
+              fitNonce={fitNonce}
               tool={tool}
               color={color}
               strokeWidth={strokeWidth}
@@ -436,6 +452,18 @@ export default function App() {
             <div className="viewer viewer-empty">Select a page to view it</div>
           )}
         </div>
+      )}
+
+      {!empty && (
+        <BottomBar
+          pageIndex={selectedIndex + 1}
+          total={pages.length}
+          onPrev={() => goToPage(-1)}
+          onNext={() => goToPage(1)}
+          zoom={zoom}
+          setZoom={setZoom}
+          onFit={() => setFitNonce((n) => n + 1)}
+        />
       )}
 
       {dragOver && <div className="drop-overlay">Drop PDF files to add them</div>}

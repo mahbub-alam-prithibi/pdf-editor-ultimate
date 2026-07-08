@@ -1,135 +1,64 @@
+import { Icon } from './icons'
+
 interface Props {
   onOpen: () => void
   onExport: () => void
-  onClear: () => void
   canExport: boolean
-  zoom: number
-  setZoom: (z: number) => void
-  pageCount: number
-  onRotateAll: (delta: number) => void
-  onUndo: () => void
-  onRedo: () => void
-  canUndo: boolean
-  canRedo: boolean
   busy: boolean
+  filename: string
 }
 
-const clampZoom = (z: number) => Math.min(3, Math.max(0.5, Math.round(z * 100) / 100))
+// Replace after publishing if the repo slug changes.
+const REPO_URL = 'https://github.com/mahbub-alam-prithibi/pdf-editor-ultimate'
 
-// Replace with your repository URL after you push to GitHub.
-const REPO_URL = 'https://github.com/mahbub-alam-prithibi/pdfly'
-
-export function Toolbar({
-  onOpen,
-  onExport,
-  onClear,
-  canExport,
-  zoom,
-  setZoom,
-  pageCount,
-  onRotateAll,
-  onUndo,
-  onRedo,
-  canUndo,
-  canRedo,
-  busy,
-}: Props) {
+export function Toolbar({ onOpen, onExport, canExport, busy, filename }: Props) {
   return (
-    <header className="toolbar">
+    <header className="topbar">
       <div className="brand">
         <span className="brand-logo" aria-hidden>
-          📄
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" />
+            <path d="M14 3v5h5" />
+          </svg>
         </span>
-        <div className="brand-text">
-          <span className="brand-name">PDFly</span>
-          <span className="brand-tag">Free &amp; private PDF editor</span>
-        </div>
+        <span className="brand-name">
+          <span className="brand-red">PDF</span> Editor Ultimate
+        </span>
       </div>
 
-      <div className="toolbar-actions">
+      <div className="topbar-center" title={filename}>
+        {filename || 'No document open'}
+      </div>
+
+      <div className="topbar-right">
+        <span className="priv-badge">🔒 Private</span>
         <button className="btn" onClick={onOpen}>
-          ＋ Add PDF
+          <Icon name="open" size={16} /> Open
         </button>
-
-        {pageCount > 0 && (
-          <>
-            <div className="divider" />
-            <button
-              className="btn icon"
-              onClick={onUndo}
-              disabled={!canUndo}
-              title="Undo (Ctrl+Z)"
-              aria-label="Undo"
-            >
-              ↶
-            </button>
-            <button
-              className="btn icon"
-              onClick={onRedo}
-              disabled={!canRedo}
-              title="Redo (Ctrl+Shift+Z)"
-              aria-label="Redo"
-            >
-              ↷
-            </button>
-            <div className="divider" />
-            <div className="zoom" role="group" aria-label="Zoom">
-              <button
-                className="btn icon"
-                onClick={() => setZoom(clampZoom(zoom - 0.25))}
-                title="Zoom out"
-                aria-label="Zoom out"
-              >
-                −
-              </button>
-              <span className="zoom-val">{Math.round(zoom * 100)}%</span>
-              <button
-                className="btn icon"
-                onClick={() => setZoom(clampZoom(zoom + 0.25))}
-                title="Zoom in"
-                aria-label="Zoom in"
-              >
-                +
-              </button>
-            </div>
-            <button
-              className="btn icon"
-              title="Rotate all pages left"
-              aria-label="Rotate all pages left"
-              onClick={() => onRotateAll(-90)}
-            >
-              ⟲
-            </button>
-            <button
-              className="btn icon"
-              title="Rotate all pages right"
-              aria-label="Rotate all pages right"
-              onClick={() => onRotateAll(90)}
-            >
-              ⟳
-            </button>
-            <button className="btn" onClick={onClear} title="Remove all pages">
-              Clear
-            </button>
-          </>
-        )}
-
-        <div className="divider" />
         <button
           className="btn btn-primary"
           onClick={onExport}
           disabled={!canExport || busy}
         >
-          ⬇ Download PDF
+          <Icon name="download" size={16} /> Download
         </button>
         <a
-          className="btn ghost"
+          className="btn ghost icon"
           href={REPO_URL}
           target="_blank"
           rel="noreferrer"
-          title="Star this project on GitHub"
+          title="Star on GitHub"
         >
-          ★ GitHub
+          <Icon name="github" size={18} />
         </a>
       </div>
     </header>

@@ -40,6 +40,8 @@ interface Props {
   page: PageItem
   src: SourceDoc
   zoom: number
+  setZoom: (z: number) => void
+  fitNonce: number
   tool: Tool
   color: string
   strokeWidth: number
@@ -56,6 +58,8 @@ export function PageEditor({
   page,
   src,
   zoom,
+  setZoom,
+  fitNonce,
   tool,
   color,
   strokeWidth,
@@ -79,6 +83,7 @@ export function PageEditor({
     rect: { x0: number; y0: number; x1: number; y1: number }
   } | null>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
+  const viewerRef = useRef<HTMLDivElement>(null)
   const imgInputRef = useRef<HTMLInputElement>(null)
   const drawing = useRef(false)
   const pendingImgPt = useRef<{ x: number; y: number } | null>(null)
@@ -99,6 +104,19 @@ export function PageEditor({
       cancelled = true
     }
   }, [src.doc, page.srcPageIndex, page.rotation, scale])
+
+  // Fit page width to the viewer when the user hits the fit button.
+  useEffect(() => {
+    if (fitNonce === 0 || !viewport || !viewerRef.current) return
+    const avail = viewerRef.current.clientWidth - 64
+    if (avail <= 0) return
+    const next = Math.min(
+      4,
+      Math.max(0.25, Math.round(((zoom * avail) / viewport.width) * 100) / 100),
+    )
+    setZoom(next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitNonce])
 
   // Escape deselects / stops editing the current text box.
   useEffect(() => {
@@ -657,7 +675,7 @@ export function PageEditor({
   }
 
   return (
-    <div className="viewer">
+    <div className="viewer" ref={viewerRef}>
       <div
         className="page-shell"
         style={{ width: viewport.width, height: viewport.height }}

@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📄 PDFly
+# 📄 PDF Editor Ultimate
 
 ### Free, private, in-browser PDF editor
 
@@ -18,10 +18,10 @@ Merge, reorder, rotate, and delete PDF pages — then download the result.
 
 ---
 
-## Why PDFly?
+## Why PDF Editor Ultimate?
 
 Most "free" online PDF tools make you **upload your documents to a stranger's
-server** — contracts, IDs, medical records, bank statements. PDFly does the same
+server** — contracts, IDs, medical records, bank statements. PDF Editor Ultimate does the same
 everyday PDF jobs, but the file is opened, edited, and saved **entirely on your
 own machine**. Nothing is uploaded, tracked, or stored. Close the tab and it's gone.
 
@@ -53,16 +53,16 @@ doesn't want to pay for Acrobat or trust a random website.
 
 ## 🚀 Live demo
 
-**→ [mahbub-alam-prithibi.github.io/pdfly](https://mahbub-alam-prithibi.github.io/pdfly/)**
+**→ [mahbub-alam-prithibi.github.io/pdf-editor-ultimate](https://mahbub-alam-prithibi.github.io/pdf-editor-ultimate/)**
 
-![PDFly screenshot](docs/screenshot.png)
+![PDF Editor Ultimate screenshot](docs/screenshot.png)
 
 ## 🧑‍💻 Quick start
 
 ```bash
 # clone
-git clone https://github.com/mahbub-alam-prithibi/pdfly.git
-cd pdfly
+git clone https://github.com/mahbub-alam-prithibi/pdf-editor-ultimate.git
+cd pdf-editor-ultimate
 
 # install
 npm install
@@ -131,5 +131,5 @@ make your change, open a PR.
 ---
 
 <div align="center">
-If PDFly helps you, please ⭐ the repo — it helps others find it.
+If PDF Editor Ultimate helps you, please ⭐ the repo — it helps others find it.
 </div>

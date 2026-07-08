@@ -1,11 +1,11 @@
 {
-  "name": "pdfly",
+  "name": "pdf-editor-ultimate",
   "private": true,
   "version": "0.1.0",
-  "description": "Free, private, in-browser PDF reader and editor. Merge, reorder, rotate, and delete PDF pages — your files never leave your device.",
+  "description": "PDF Editor Ultimate — free, private, in-browser PDF editor. Edit text, fill forms, sign, annotate, merge, and reorder PDFs. Your files never leave your device.",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://github.com/mahbub-alam-prithibi/pdfly",
+  "homepage": "https://github.com/mahbub-alam-prithibi/pdf-editor-ultimate",
   "keywords": [
     "pdf",
     "pdf-editor",
