@@ -24,16 +24,24 @@ export interface PageItem {
 export type Tool =
   | 'select'
   | 'text'
+  | 'edittext'
   | 'draw'
   | 'highlight'
   | 'whiteout'
   | 'image'
+  | 'signature'
 
 /**
  * Annotations are stored in the page's native PDF coordinate space
  * (points, origin bottom-left, y increasing upward). This keeps them
  * independent of zoom and rotation, and maps directly onto pdf-lib at export.
  */
+export interface TextFont {
+  family: 'sans' | 'serif' | 'mono'
+  bold: boolean
+  italic: boolean
+}
+
 export interface TextAnn {
   id: string
   type: 'text'
@@ -45,6 +53,8 @@ export interface TextAnn {
   /** Font size in PDF points. */
   size: number
   color: string
+  /** Font style; when omitted, defaults to sans/regular (Helvetica). */
+  font?: TextFont
 }
 
 export interface DrawAnn {

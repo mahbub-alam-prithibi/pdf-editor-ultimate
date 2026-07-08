@@ -12,11 +12,14 @@ interface Props {
   onUndo: () => void
   onClearPage: () => void
   canUndo: boolean
+  onSign: () => void
+  signing: boolean
 }
 
 const TOOLS: { id: Tool; label: string; icon: string; hint: string }[] = [
   { id: 'select', label: 'Select', icon: '🖱️', hint: 'Select & move text' },
   { id: 'text', label: 'Text', icon: '✍️', hint: 'Click to add text' },
+  { id: 'edittext', label: 'Edit text', icon: '✏️', hint: 'Click existing text to replace it' },
   { id: 'draw', label: 'Draw', icon: '🖊️', hint: 'Freehand draw / sign' },
   { id: 'highlight', label: 'Highlight', icon: '🖍️', hint: 'Drag to highlight' },
   { id: 'whiteout', label: 'Whiteout', icon: '⬜', hint: 'Cover / redact' },
@@ -46,6 +49,8 @@ export function EditToolbar({
   onUndo,
   onClearPage,
   canUndo,
+  onSign,
+  signing,
 }: Props) {
   return (
     <div className="edit-toolbar">
@@ -63,6 +68,16 @@ export function EditToolbar({
             <span className="tool-label">{t.label}</span>
           </button>
         ))}
+        <button
+          className={`tool-btn${signing ? ' active' : ''}`}
+          title="Draw or type a reusable signature, then place it"
+          onClick={onSign}
+        >
+          <span className="tool-icon" aria-hidden>
+            ✒️
+          </span>
+          <span className="tool-label">Sign</span>
+        </button>
       </div>
 
       <div className="divider" />

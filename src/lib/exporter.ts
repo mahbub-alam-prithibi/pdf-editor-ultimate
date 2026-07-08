@@ -1,8 +1,39 @@
 import { PDFDocument, degrees, StandardFonts, BlendMode } from 'pdf-lib'
 import { hexToRgb } from './color'
-import type { AnnotationMap, PageItem, SourceDoc } from './types'
+import type { AnnotationMap, PageItem, SourceDoc, TextFont } from './types'
 
 const norm = (deg: number) => ((deg % 360) + 360) % 360
+
+/** Map a detected/selected font to the closest PDF standard font. */
+function pickStdFont(f?: TextFont): StandardFonts {
+  const b = f?.bold
+  const i = f?.italic
+  if (f?.family === 'serif') {
+    return b && i
+      ? StandardFonts.TimesRomanBoldItalic
+      : b
+        ? StandardFonts.TimesRomanBold
+        : i
+          ? StandardFonts.TimesRomanItalic
+          : StandardFonts.TimesRoman
+  }
+  if (f?.family === 'mono') {
+    return b && i
+      ? StandardFonts.CourierBoldOblique
+      : b
+        ? StandardFonts.CourierBold
+        : i
+          ? StandardFonts.CourierOblique
+          : StandardFonts.Courier
+  }
+  return b && i
+    ? StandardFonts.HelveticaBoldOblique
+    : b
+      ? StandardFonts.HelveticaBold
+      : i
+        ? StandardFonts.HelveticaOblique
+        : StandardFonts.Helvetica
+}
 
 /** Fill a source document's AcroForm fields with the user's values, then flatten
  *  so the values become part of the page content (and survive copyPages). */
@@ -62,9 +93,17 @@ export async function buildPdf(
   formValues: Record<string, string | boolean> = {},
 ): Promise<Uint8Array> {
   const out = await PDFDocument.create()
-  const font = await out.embedFont(StandardFonts.Helvetica)
   const loaded = new Map<string, PDFDocument>()
   const imageCache = new Map<string, Awaited<ReturnType<PDFDocument['embedPng']>>>()
+  const fontCache = new Map<StandardFonts, Awaited<ReturnType<PDFDocument['embedFont']>>>()
+  const getFont = async (sf: StandardFonts) => {
+    let f = fontCache.get(sf)
+    if (!f) {
+      f = await out.embedFont(sf)
+      fontCache.set(sf, f)
+    }
+    return f
+  }
 
   for (const page of pages) {
     let src = loaded.get(page.srcId)
@@ -84,6 +123,7 @@ export async function buildPdf(
     for (const a of anns) {
       try {
         if (a.type === 'text') {
+          const font = await getFont(pickStdFont(a.font))
           const lines = a.text.split('\n')
           lines.forEach((line, i) => {
             drawn.drawText(line, {

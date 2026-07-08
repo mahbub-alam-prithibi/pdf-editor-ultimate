@@ -7,10 +7,28 @@ import type {
   Annotation,
   ImageAnn,
   PageItem,
+  RectAnn,
   SourceDoc,
   TextAnn,
+  TextFont,
   Tool,
 } from '../lib/types'
+
+interface TextItemInfo {
+  str: string
+  x: number
+  y: number
+  width: number
+  fontSize: number
+  font: TextFont
+}
+
+const hexToTriplet = (h: string): [number, number, number] => {
+  const n = parseInt(h.replace('#', ''), 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+const tripletToHex = (r: number, g: number, b: number) =>
+  `#${[r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')}`
 
 const norm = (d: number) => ((d % 360) + 360) % 360
 const uid = () =>
@@ -30,6 +48,8 @@ interface Props {
   onChange: (anns: Annotation[]) => void
   formValues: Record<string, string | boolean>
   onFormChange: (srcId: string, name: string, value: string | boolean) => void
+  onToolChange: (t: Tool) => void
+  pendingSignature: string | null
 }
 
 export function PageEditor({
@@ -44,15 +64,25 @@ export function PageEditor({
   onChange,
   formValues,
   onFormChange,
+  onToolChange,
+  pendingSignature,
 }: Props) {
   const scale = 1.4 * zoom
   const [viewport, setViewport] = useState<PageViewport | null>(null)
   const [draft, setDraft] = useState<Annotation | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null)
+  const imgDragRef = useRef<{
+    id: string
+    mode: 'move' | 'nw' | 'ne' | 'sw' | 'se'
+    startPdf: { x: number; y: number }
+    rect: { x0: number; y0: number; x1: number; y1: number }
+  } | null>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const imgInputRef = useRef<HTMLInputElement>(null)
   const drawing = useRef(false)
   const pendingImgPt = useRef<{ x: number; y: number } | null>(null)
+  const textItemsRef = useRef<{ pageId: string; items: TextItemInfo[] } | null>(null)
   const dragState = useRef<
     | { id: string; startX: number; startYTop: number; px: number; py: number }
     | null
@@ -102,6 +132,178 @@ export function PageEditor({
       annotations.map((a) => (a.id === id ? ({ ...a, ...p } as Annotation) : a)),
     )
   const remove = (id: string) => onChange(annotations.filter((a) => a.id !== id))
+  const resizeText = (id: string, dir: 1 | -1) => {
+    const a = annotations.find((x) => x.id === id)
+    if (!a || a.type !== 'text') return
+    const step = Math.max(1, Math.round(a.size * 0.1))
+    patch(id, { size: Math.min(300, Math.max(6, a.size + dir * step)) })
+  }
+  const setTextColor = (id: string, color: string) => patch(id, { color })
+  const setTextFont = (id: string, partial: Partial<TextFont>) => {
+    const a = annotations.find((x) => x.id === id)
+    if (!a || a.type !== 'text') return
+    const cur = a.font ?? { family: 'sans', bold: false, italic: false }
+    patch(id, { font: { ...cur, ...partial } })
+  }
+
+  // Text runs on the page (PDF coords), for the "Edit text" tool. Cached per page.
+  const ensureTextItems = async (): Promise<TextItemInfo[]> => {
+    if (textItemsRef.current?.pageId === page.id) return textItemsRef.current.items
+    const p = await src.doc.getPage(page.srcPageIndex + 1)
+    // Force the page's fonts to load into commonObjs so we can read weight/style.
+    try {
+      await p.getOperatorList()
+    } catch {
+      /* ignore */
+    }
+    const tc = await p.getTextContent()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const styles = (tc as any).styles || {}
+
+    const detectFont = (fontName: string): TextFont => {
+      const famStr = String(styles[fontName]?.fontFamily || '').toLowerCase()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let fo: any = null
+      try {
+        fo = p.commonObjs.get(fontName)
+      } catch {
+        /* not resolved — fall back to the family string only */
+      }
+      const psName = String(fo?.name || '').toLowerCase()
+      const s = `${psName} ${famStr}`
+      let family: TextFont['family'] = 'sans'
+      if (/courier|mono|consol/.test(s) || famStr.includes('monospace')) family = 'mono'
+      else if (
+        /times|georgia|garamond|roman|minion|cambria|book|serif/.test(psName) ||
+        (famStr.includes('serif') && !famStr.includes('sans'))
+      )
+        family = 'serif'
+      // Prefer the font's own flags; fall back to parsing its name.
+      const bold = !!(fo?.bold || fo?.black) || /bold|black|heavy|semibold/.test(s)
+      const italic = !!fo?.italic || /italic|oblique/.test(s)
+      return { family, bold, italic }
+    }
+
+    const items: TextItemInfo[] = tc.items
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((it: any) => it)
+      .filter((it) => it.str && it.str.trim() && it.transform)
+      .map((it) => {
+        const t = it.transform as number[]
+        const fontSize = Math.hypot(t[2], t[3]) || it.height || 12
+        return {
+          str: it.str as string,
+          x: t[4],
+          y: t[5],
+          width: it.width as number,
+          fontSize,
+          font: detectFont(it.fontName),
+        }
+      })
+    textItemsRef.current = { pageId: page.id, items }
+    return items
+  }
+
+  // Sample the page's background colour near a text run so the cover blends in.
+  const sampleBg = (item: TextItemInfo): string => {
+    try {
+      if (!viewport) return '#ffffff'
+      const canvas = surfaceRef.current?.parentElement?.querySelector(
+        '.pdf-canvas',
+      ) as HTMLCanvasElement | null
+      const ctx = canvas?.getContext('2d')
+      if (!canvas || !ctx) return '#ffffff'
+      const dpr = window.devicePixelRatio || 1
+      const cx = item.x + item.width / 2
+      const probes: [number, number][] = [
+        [cx, item.y + item.fontSize * 1.3], // above
+        [cx, item.y - item.fontSize * 0.5], // below
+        [item.x + item.width + item.fontSize * 0.4, item.y + item.fontSize * 0.3], // right
+      ]
+      let best = '#ffffff'
+      let bestLum = -1
+      for (const [px, py] of probes) {
+        const [vx, vy] = viewport.convertToViewportPoint(px, py)
+        const sx = Math.round(vx * dpr)
+        const sy = Math.round(vy * dpr)
+        if (sx < 0 || sy < 0 || sx >= canvas.width || sy >= canvas.height) continue
+        const d = ctx.getImageData(sx, sy, 1, 1).data
+        const lum = 0.299 * d[0] + 0.587 * d[1] + 0.114 * d[2]
+        if (lum > bestLum) {
+          bestLum = lum
+          best = `#${[d[0], d[1], d[2]].map((n) => n.toString(16).padStart(2, '0')).join('')}`
+        }
+      }
+      return best
+    } catch {
+      return '#ffffff'
+    }
+  }
+
+  // Sample the original text colour by reading the whole run region and averaging
+  // the "solid ink" pixels (those most unlike the background). Averaging the solid
+  // core avoids anti-aliased edge pixels, so black text reads as black, not grey.
+  const sampleTextColor = (item: TextItemInfo, bgHex: string): string => {
+    try {
+      if (!viewport) return '#000000'
+      const canvas = surfaceRef.current?.parentElement?.querySelector(
+        '.pdf-canvas',
+      ) as HTMLCanvasElement | null
+      const ctx = canvas?.getContext('2d')
+      if (!canvas || !ctx) return '#000000'
+      const dpr = window.devicePixelRatio || 1
+      const [br, bgc, bb] = hexToTriplet(bgHex)
+
+      // Glyph region in device pixels.
+      const [ax, ay] = viewport.convertToViewportPoint(item.x, item.y - item.fontSize * 0.2)
+      const [bx, by] = viewport.convertToViewportPoint(
+        item.x + item.width,
+        item.y + item.fontSize * 0.75,
+      )
+      let sx = Math.round(Math.min(ax, bx) * dpr)
+      let sy = Math.round(Math.min(ay, by) * dpr)
+      let sw = Math.round(Math.abs(bx - ax) * dpr)
+      let sh = Math.round(Math.abs(by - ay) * dpr)
+      sx = Math.max(0, sx)
+      sy = Math.max(0, sy)
+      sw = Math.min(sw, canvas.width - sx)
+      sh = Math.min(sh, canvas.height - sy)
+      if (sw <= 0 || sh <= 0) return '#000000'
+
+      const data = ctx.getImageData(sx, sy, sw, sh).data
+      const dist = (i: number) =>
+        Math.abs(data[i] - br) + Math.abs(data[i + 1] - bgc) + Math.abs(data[i + 2] - bb)
+
+      // Pass 1: how far does the darkest/most-saturated ink get from the background?
+      let maxDist = 0
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 128) continue
+        const d = dist(i)
+        if (d > maxDist) maxDist = d
+      }
+      if (maxDist < 60) return '#000000' // no real ink found
+
+      // Pass 2: average the solid-ink cluster (near the max), ignoring faint edges.
+      const thresh = maxDist * 0.8
+      let r = 0
+      let g = 0
+      let b = 0
+      let n = 0
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 128) continue
+        if (dist(i) >= thresh) {
+          r += data[i]
+          g += data[i + 1]
+          b += data[i + 2]
+          n++
+        }
+      }
+      if (!n) return '#000000'
+      return tripletToHex(Math.round(r / n), Math.round(g / n), Math.round(b / n))
+    } catch {
+      return '#000000'
+    }
+  }
 
   // ----- pointer handlers on the editing surface -----
   const onPointerDown = (e: React.PointerEvent) => {
@@ -127,9 +329,83 @@ export function PageEditor({
       setEditingId(ann.id)
       return
     }
+    if (tool === 'edittext') {
+      void (async () => {
+        const items = await ensureTextItems()
+        // Runs whose vertical band contains the click.
+        const band = items.filter(
+          (it) => pt.y >= it.y - it.fontSize * 0.4 && pt.y <= it.y + it.fontSize * 1.0,
+        )
+        // Prefer a run that horizontally contains the click; else the nearest one on the line.
+        let hit = band.find((it) => pt.x >= it.x - 2 && pt.x <= it.x + it.width + 2)
+        if (!hit && band.length) {
+          hit = band
+            .map((it) => ({
+              it,
+              d: Math.max(0, it.x - pt.x, pt.x - (it.x + it.width)),
+            }))
+            .sort((a, b) => a.d - b.d)[0].it
+        }
+        if (!hit) return
+        const bg = sampleBg(hit)
+        const textColor = sampleTextColor(hit, bg)
+        const pad = hit.fontSize * 0.15
+        const cover: RectAnn = {
+          id: uid(),
+          type: 'whiteout',
+          x0: hit.x - pad,
+          y0: hit.y - hit.fontSize * 0.3,
+          x1: hit.x + hit.width + pad,
+          y1: hit.y + hit.fontSize * 0.9,
+          color: bg,
+        }
+        const replacement: TextAnn = {
+          id: uid(),
+          type: 'text',
+          x: hit.x,
+          yTop: hit.y + hit.fontSize * 0.9,
+          text: hit.str,
+          // Font now matches the original (serif/sans/mono + weight/style), so
+          // keep the detected size; fine-tune with A- / A+ if needed.
+          size: hit.fontSize,
+          color: textColor,
+          font: hit.font,
+        }
+        onChange([...annotations, cover, replacement])
+        setEditingId(replacement.id)
+      })()
+      return
+    }
     if (tool === 'image') {
       pendingImgPt.current = pt
       imgInputRef.current?.click()
+      return
+    }
+    if (tool === 'signature') {
+      if (!pendingSignature) return
+      const dataUrl = pendingSignature
+      const probe = new Image()
+      probe.onload = () => {
+        const aspect = probe.naturalWidth / probe.naturalHeight || 3
+        const pageW = viewport.viewBox[2] - viewport.viewBox[0]
+        const w = pageW * 0.28
+        const h = w / aspect
+        const ann: ImageAnn = {
+          id: uid(),
+          type: 'image',
+          x0: pt.x,
+          y0: pt.y - h,
+          x1: pt.x + w,
+          y1: pt.y,
+          dataUrl,
+          bytes: dataUrlToBytes(dataUrl),
+          fmt: 'png',
+        }
+        add(ann)
+        setSelectedAnnId(ann.id)
+        onToolChange('select')
+      }
+      probe.src = dataUrl
       return
     }
     if (tool === 'draw') {
@@ -158,7 +434,28 @@ export function PageEditor({
       })
       return
     }
-    // select tool: clicking empty space deselects and removes any blank text boxes
+    // select tool: pick up an image under the cursor (topmost first), else deselect
+    const img = [...annotations]
+      .reverse()
+      .find(
+        (a): a is ImageAnn =>
+          a.type === 'image' &&
+          pt.x >= Math.min(a.x0, a.x1) &&
+          pt.x <= Math.max(a.x0, a.x1) &&
+          pt.y >= Math.min(a.y0, a.y1) &&
+          pt.y <= Math.max(a.y0, a.y1),
+      )
+    if (img) {
+      setSelectedAnnId(img.id)
+      imgDragRef.current = {
+        id: img.id,
+        mode: 'move',
+        startPdf: pt,
+        rect: { x0: img.x0, y0: img.y0, x1: img.x1, y1: img.y1 },
+      }
+      return
+    }
+    setSelectedAnnId(null)
     const cleaned = annotations.filter(
       (a) => !(a.type === 'text' && a.text.trim() === ''),
     )
@@ -221,11 +518,78 @@ export function PageEditor({
           fmt,
         }
         add(ann)
+        setSelectedAnnId(ann.id)
+        onToolChange('select') // let the user immediately move / resize it
       }
       probe.src = dataUrl
     }
     reader.readAsDataURL(file)
   }
+
+  const startImgResize = (
+    e: React.PointerEvent,
+    a: ImageAnn,
+    mode: 'nw' | 'ne' | 'sw' | 'se',
+  ) => {
+    e.stopPropagation()
+    const startPdf = toPdf(e.clientX, e.clientY)
+    if (!startPdf) return
+    imgDragRef.current = {
+      id: a.id,
+      mode,
+      startPdf,
+      rect: { x0: a.x0, y0: a.y0, x1: a.x1, y1: a.y1 },
+    }
+  }
+
+  // ----- image move / resize (aspect-locked) -----
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const d = imgDragRef.current
+      if (!d) return
+      const cur = toPdf(e.clientX, e.clientY)
+      if (!cur) return
+      const r = d.rect
+      if (d.mode === 'move') {
+        const dx = cur.x - d.startPdf.x
+        const dy = cur.y - d.startPdf.y
+        patch(d.id, { x0: r.x0 + dx, x1: r.x1 + dx, y0: r.y0 + dy, y1: r.y1 + dy })
+        return
+      }
+      const left = Math.min(r.x0, r.x1)
+      const right = Math.max(r.x0, r.x1)
+      const bottom = Math.min(r.y0, r.y1)
+      const top = Math.max(r.y0, r.y1)
+      const aspect = (right - left) / Math.max(1, top - bottom)
+      let anchorX: number, anchorY: number, dirX: number, dirY: number
+      switch (d.mode) {
+        case 'se': anchorX = left; anchorY = top; dirX = 1; dirY = -1; break
+        case 'ne': anchorX = left; anchorY = bottom; dirX = 1; dirY = 1; break
+        case 'sw': anchorX = right; anchorY = top; dirX = -1; dirY = -1; break
+        default: anchorX = right; anchorY = bottom; dirX = -1; dirY = 1; break // nw
+      }
+      const w = Math.max(Math.abs(cur.x - anchorX), Math.abs(cur.y - anchorY) * aspect, 10)
+      const h = w / aspect
+      const cx = anchorX + dirX * w
+      const cy = anchorY + dirY * h
+      patch(d.id, {
+        x0: Math.min(anchorX, cx),
+        x1: Math.max(anchorX, cx),
+        y0: Math.min(anchorY, cy),
+        y1: Math.max(anchorY, cy),
+      })
+    }
+    const onUp = () => {
+      imgDragRef.current = null
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scale, annotations, viewport])
 
   // ----- text drag -----
   useEffect(() => {
@@ -263,9 +627,9 @@ export function PageEditor({
     return <div className="viewer viewer-empty">Rendering…</div>
   }
 
-  const textEditable = tool === 'select' || tool === 'text'
+  const textEditable = tool === 'select' || tool === 'text' || tool === 'edittext'
   const cursor =
-    tool === 'text'
+    tool === 'text' || tool === 'edittext'
       ? 'text'
       : tool === 'select'
         ? 'default'
@@ -274,6 +638,23 @@ export function PageEditor({
   const textAnns = annotations.filter(
     (a): a is TextAnn => a.type === 'text',
   )
+  const selImg =
+    tool === 'select' && selectedAnnId
+      ? (annotations.find(
+          (a) => a.id === selectedAnnId && a.type === 'image',
+        ) as ImageAnn | undefined)
+      : undefined
+  let selBox: { left: number; top: number; w: number; h: number } | null = null
+  if (selImg) {
+    const [ax, ay] = viewport.convertToViewportPoint(selImg.x0, selImg.y0)
+    const [bx, by] = viewport.convertToViewportPoint(selImg.x1, selImg.y1)
+    selBox = {
+      left: Math.min(ax, bx),
+      top: Math.min(ay, by),
+      w: Math.abs(bx - ax),
+      h: Math.abs(by - ay),
+    }
+  }
 
   return (
     <div className="viewer">
@@ -313,9 +694,35 @@ export function PageEditor({
                 onText={(text) => patch(ann.id, { text })}
                 onDelete={() => remove(ann.id)}
                 onDragStart={(e) => startTextDrag(e, ann)}
+                onResize={(dir) => resizeText(ann.id, dir)}
+                onColor={(c) => setTextColor(ann.id, c)}
+                onFont={(pf) => setTextFont(ann.id, pf)}
               />
             )
           })}
+
+          {selImg && selBox && (
+            <div
+              className="img-sel"
+              style={{ left: selBox.left, top: selBox.top, width: selBox.w, height: selBox.h }}
+            >
+              <span className="img-handle nw" onPointerDown={(e) => startImgResize(e, selImg, 'nw')} />
+              <span className="img-handle ne" onPointerDown={(e) => startImgResize(e, selImg, 'ne')} />
+              <span className="img-handle sw" onPointerDown={(e) => startImgResize(e, selImg, 'sw')} />
+              <span className="img-handle se" onPointerDown={(e) => startImgResize(e, selImg, 'se')} />
+              <button
+                className="img-del"
+                title="Delete image"
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  remove(selImg.id)
+                  setSelectedAnnId(null)
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
 
         <FormLayer
@@ -356,6 +763,9 @@ interface TextBoxProps {
   onText: (text: string) => void
   onDelete: () => void
   onDragStart: (e: React.PointerEvent) => void
+  onResize: (dir: 1 | -1) => void
+  onColor: (hex: string) => void
+  onFont: (partial: Partial<TextFont>) => void
 }
 
 function TextBox({
@@ -369,6 +779,9 @@ function TextBox({
   onText,
   onDelete,
   onDragStart,
+  onResize,
+  onColor,
+  onFont,
 }: TextBoxProps) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -402,9 +815,57 @@ function TextBox({
       onPointerDown={(e) => e.stopPropagation()}
     >
       {editable && (
-        <span className="tb-grip" title="Drag to move" onPointerDown={onDragStart}>
-          ⠿
-        </span>
+        <div className="tb-tools" onPointerDown={(e) => e.stopPropagation()}>
+          <button
+            className="tb-tool grip"
+            title="Drag to move"
+            onPointerDown={onDragStart}
+          >
+            ⠿
+          </button>
+          <select
+            className="tb-tool tb-select"
+            title="Font"
+            value={ann.font?.family ?? 'sans'}
+            onChange={(e) => onFont({ family: e.target.value as TextFont['family'] })}
+          >
+            <option value="sans">Sans</option>
+            <option value="serif">Serif</option>
+            <option value="mono">Mono</option>
+          </select>
+          <button
+            className={`tb-tool${ann.font?.bold ? ' on' : ''}`}
+            title="Bold"
+            onClick={() => onFont({ bold: !ann.font?.bold })}
+          >
+            <b>B</b>
+          </button>
+          <button
+            className={`tb-tool${ann.font?.italic ? ' on' : ''}`}
+            title="Italic"
+            onClick={() => onFont({ italic: !ann.font?.italic })}
+          >
+            <i>I</i>
+          </button>
+          <button className="tb-tool" title="Smaller" onClick={() => onResize(-1)}>
+            A−
+          </button>
+          <span className="tb-size">{Math.round(ann.size)}</span>
+          <button className="tb-tool" title="Bigger" onClick={() => onResize(1)}>
+            A+
+          </button>
+          <label className="tb-tool tb-color" title="Text colour">
+            <span className="tb-color-dot" style={{ background: ann.color }} />
+            <input
+              type="color"
+              value={ann.color}
+              onChange={(e) => onColor(e.target.value)}
+            />
+          </label>
+          <button className="tb-tool del" title="Delete" onClick={onDelete}>
+            ✕
+          </button>
+        </div>
       )}
       <textarea
         ref={ref}
@@ -415,15 +876,22 @@ function TextBox({
         spellCheck={false}
         readOnly={!editable}
         placeholder="Type…"
-        style={{ fontSize: ann.size * scale, color: ann.color, lineHeight: 1.15 }}
+        style={{
+          fontSize: ann.size * scale,
+          color: ann.color,
+          lineHeight: 1.15,
+          fontFamily:
+            ann.font?.family === 'serif'
+              ? '"Times New Roman", Times, serif'
+              : ann.font?.family === 'mono'
+                ? '"Courier New", Courier, monospace'
+                : 'Helvetica, Arial, sans-serif',
+          fontWeight: ann.font?.bold ? 700 : 400,
+          fontStyle: ann.font?.italic ? 'italic' : 'normal',
+        }}
         onChange={(e) => onText(e.target.value)}
         onFocus={onFocus}
       />
-      {editable && (
-        <span className="tb-del" title="Delete" onPointerDown={onDelete}>
-          ✕
-        </span>
-      )}
     </div>
   )
 }

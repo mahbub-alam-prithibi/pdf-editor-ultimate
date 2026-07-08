@@ -7,6 +7,7 @@ import { EditToolbar } from './components/EditToolbar'
 import { ThumbnailSidebar } from './components/ThumbnailSidebar'
 import { PageEditor } from './components/PageEditor'
 import { Dropzone } from './components/Dropzone'
+import { SignaturePad } from './components/SignaturePad'
 
 const uid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -47,6 +48,16 @@ export default function App() {
   const [textSize, setTextSize] = useState(16)
   // Form field values, keyed by `${srcId}::${fieldName}`.
   const [formValues, setFormValues] = useState<Record<string, string | boolean>>({})
+  // Signatures (data URLs), persisted on this device only.
+  const [signatures, setSignatures] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('pdfly.signatures') || '[]')
+    } catch {
+      return []
+    }
+  })
+  const [pendingSignature, setPendingSignature] = useState<string | null>(null)
+  const [showSigPad, setShowSigPad] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -219,6 +230,29 @@ export default function App() {
   const onFormChange = (srcId: string, name: string, value: string | boolean) =>
     setFormValues((prev) => ({ ...prev, [`${srcId}::${name}`]: value }))
 
+  // ---- signatures ----
+  useEffect(() => {
+    try {
+      localStorage.setItem('pdfly.signatures', JSON.stringify(signatures))
+    } catch {
+      /* storage full or unavailable — ignore */
+    }
+  }, [signatures])
+
+  const saveAndPlaceSig = (dataUrl: string) => {
+    setSignatures((prev) => (prev.includes(dataUrl) ? prev : [dataUrl, ...prev].slice(0, 12)))
+    setPendingSignature(dataUrl)
+    setTool('signature')
+    setShowSigPad(false)
+  }
+  const useSig = (dataUrl: string) => {
+    setPendingSignature(dataUrl)
+    setTool('signature')
+    setShowSigPad(false)
+  }
+  const deleteSig = (dataUrl: string) =>
+    setSignatures((prev) => prev.filter((s) => s !== dataUrl))
+
   const exportPdf = async () => {
     if (!pages.length) return
     setBusy(true)
@@ -337,6 +371,18 @@ export default function App() {
           onUndo={undoOnPage}
           onClearPage={clearPageAnns}
           canUndo={pageAnnCount > 0}
+          onSign={() => setShowSigPad(true)}
+          signing={tool === 'signature'}
+        />
+      )}
+
+      {showSigPad && (
+        <SignaturePad
+          saved={signatures}
+          onSaveAndPlace={saveAndPlaceSig}
+          onUse={useSig}
+          onDelete={deleteSig}
+          onClose={() => setShowSigPad(false)}
         />
       )}
 
@@ -383,6 +429,8 @@ export default function App() {
               onChange={(anns) => setPageAnns(selected.id, anns)}
               formValues={formValues}
               onFormChange={onFormChange}
+              onToolChange={setTool}
+              pendingSignature={pendingSignature}
             />
           ) : (
             <div className="viewer viewer-empty">Select a page to view it</div>
