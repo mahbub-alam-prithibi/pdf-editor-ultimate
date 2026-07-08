@@ -42,6 +42,7 @@ export function Toolbar({
         </span>
         <span className="brand-name">
           <span className="brand-red">PDF</span> Editor Ultimate
+          <span className="brand-by">by Ptb</span>
         </span>
       </div>
 

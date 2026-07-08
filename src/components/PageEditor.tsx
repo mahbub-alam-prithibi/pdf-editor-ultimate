@@ -409,6 +409,18 @@ export function PageEditor({
             .sort((a, b) => a.d - b.d)[0].it
         }
         if (!hit) return
+        // If this run was already replaced (a text box sits here), just re-select
+        // it — never stack a second cover + copy on top (that looked like a repeat).
+        const existing = annotations.find(
+          (a): a is TextAnn =>
+            a.type === 'text' &&
+            Math.abs(a.x - hit.x) < hit.fontSize * 0.6 &&
+            Math.abs(a.yTop - (hit.y + hit.fontSize * 0.9)) < hit.fontSize * 0.8,
+        )
+        if (existing) {
+          setEditingId(existing.id)
+          return
+        }
         const bg = sampleBg(hit)
         const textColor = sampleTextColor(hit, bg)
         const pad = hit.fontSize * 0.15
