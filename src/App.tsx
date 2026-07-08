@@ -116,8 +116,11 @@ export default function App() {
     }
   }, [addFiles])
 
+  const demoLoaded = useRef(false)
   useEffect(() => {
+    if (demoLoaded.current) return
     if (typeof location !== 'undefined' && /[?&]demo/.test(location.search)) {
+      demoLoaded.current = true
       void loadSample()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -21,7 +21,7 @@ pages.forEach(({ title, color }, i) => {
   const page = doc.addPage([595, 842]) // A4
   page.drawRectangle({ x: 0, y: 742, width: 595, height: 100, color })
   page.drawText(title, { x: 48, y: 775, size: 34, font, color: rgb(1, 1, 1) })
-  page.drawText('PDFly sample document', {
+  page.drawText('PDF Editor Ultimate — sample document', {
     x: 48,
     y: 690,
     size: 16,
