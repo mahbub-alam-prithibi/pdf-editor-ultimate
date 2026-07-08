@@ -30,21 +30,30 @@ doesn't want to pay for Acrobat or trust a random website.
 
 ## ✨ Features
 
+**Pages**
 - 📂 **Open any PDF** — drag & drop or browse
 - 🔗 **Merge** multiple PDFs into one (just add more files)
-- 🔀 **Reorder** pages (move up / down)
+- 🔀 **Reorder** pages — drag thumbnails or move up / down
 - 🔄 **Rotate** pages individually or all at once
-- 🗑️ **Delete / extract** pages (split a document by removing what you don't need)
-- 🔍 **Zoom** and page-by-page preview with keyboard navigation
+- 🗑️ **Delete / extract** pages
+
+**Edit & annotate**
+- ✍️ **Add text** — with live font, **bold/italic**, size, and colour controls
+- ✏️ **Edit existing text** — click a line to replace it, keeping the original font, size & colour
+- 🖊️ **Draw & sign** freehand · 🖍️ **highlight** · ⬜ **whiteout / redact**
+- 🖼️ **Insert images** — move & resize (aspect-locked)
+- ✒️ **E-signatures** — draw or type a signature, save it on your device, stamp it anywhere
+- 🧾 **Fill PDF forms** — text fields, checkboxes, radios, dropdowns (flattened on export)
+
+**Workflow**
+- ↩️ **Undo / redo** (Ctrl+Z / Ctrl+Shift+Z) · 🔍 zoom · ⌨️ keyboard page nav
 - 💾 **Download** the edited PDF in one click
 - 🔒 **100% client-side** — no uploads, no accounts, no tracking
 - ⚡ Works **offline** once loaded
 
 ## 🚀 Live demo
 
-> Deploy your own in minutes — see [Deployment](#-deployment). Then drop the link here.
-
-*(Screenshot: `docs/screenshot.png`)*
+**→ [mahbub-alam-prithibi.github.io/pdfly](https://mahbub-alam-prithibi.github.io/pdfly/)**
 
 ![PDFly screenshot](docs/screenshot.png)
 
@@ -52,8 +61,8 @@ doesn't want to pay for Acrobat or trust a random website.
 
 ```bash
 # clone
-git clone https://github.com/your-username/pdf-editor.git
-cd pdf-editor
+git clone https://github.com/mahbub-alam-prithibi/pdfly.git
+cd pdfly
 
 # install
 npm install

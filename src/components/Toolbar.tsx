@@ -17,7 +17,7 @@ interface Props {
 const clampZoom = (z: number) => Math.min(3, Math.max(0.5, Math.round(z * 100) / 100))
 
 // Replace with your repository URL after you push to GitHub.
-const REPO_URL = 'https://github.com/your-username/pdf-editor'
+const REPO_URL = 'https://github.com/mahbub-alam-prithibi/pdfly'
 
 export function Toolbar({
   onOpen,
