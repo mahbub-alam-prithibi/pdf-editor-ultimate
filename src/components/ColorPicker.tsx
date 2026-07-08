@@ -1,94 +1,222 @@
 import { useEffect, useRef, useState } from 'react'
+import { Icon } from './icons'
 
 interface Props {
   value: string
   onChange: (hex: string) => void
 }
 
-// A broad but compact set of colours (grouped by hue) — no native OS dialog.
-const COLORS = [
-  '#000000', '#404040', '#666666', '#999999', '#cccccc', '#ffffff',
-  '#7a0b0b', '#c0180f', '#e01e26', '#ff5a4d', '#ff9a90', '#ffd7d2',
-  '#a04a00', '#e67e00', '#f5a623', '#ffd23f', '#fff08a', '#fff7cc',
-  '#0b5c2e', '#1aa64b', '#43d17a', '#8fe0a8', '#0a6b6b', '#00a3a3',
-  '#0b2e7a', '#1f6feb', '#5a9bff', '#a9c9ff', '#3a1a6b', '#6b3fd4',
-  '#9a6ff0', '#c9b0f7', '#8a1155', '#e91e8c', '#ff6bb3', '#8d5a2b',
+const HAS_EYEDROPPER = typeof window !== 'undefined' && 'EyeDropper' in window
+
+const QUICK = [
+  '#000000', '#5f6368', '#ffffff', '#e01e26', '#ff8a00', '#f7c600',
+  '#1aa64b', '#00a3a3', '#1f6feb', '#6b3fd4', '#e91e8c', '#8d5a2b',
 ]
 
-function normalizeHex(h: string): string | null {
-  let s = h.trim().replace(/^#/, '')
-  if (/^[0-9a-fA-F]{3}$/.test(s)) s = s.split('').map((c) => c + c).join('')
-  if (/^[0-9a-fA-F]{6}$/.test(s)) return `#${s.toLowerCase()}`
-  return null
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  let s = hex.replace('#', '')
+  if (s.length === 3) s = s.split('').map((c) => c + c).join('')
+  if (!/^[0-9a-fA-F]{6}$/.test(s)) return null
+  const n = parseInt(s, 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((x) => clamp(Math.round(x), 0, 255).toString(16).padStart(2, '0')).join('')}`
+}
+function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
+  r /= 255; g /= 255; b /= 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+  let h = 0
+  if (d) {
+    if (max === r) h = ((g - b) / d) % 6
+    else if (max === g) h = (b - r) / d + 2
+    else h = (r - g) / d + 4
+    h *= 60
+    if (h < 0) h += 360
+  }
+  return [h, max ? d / max : 0, max]
+}
+function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c
+  let r = 0, g = 0, b = 0
+  if (h < 60) { r = c; g = x } else if (h < 120) { r = x; g = c }
+  else if (h < 180) { g = c; b = x } else if (h < 240) { g = x; b = c }
+  else if (h < 300) { r = x; b = c } else { r = c; b = x }
+  return [(r + m) * 255, (g + m) * 255, (b + m) * 255]
 }
 
 export function ColorPicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false)
-  const [hex, setHex] = useState(value.replace('#', ''))
-  const ref = useRef<HTMLDivElement>(null)
+  const [hsv, setHsv] = useState<[number, number, number]>(() => {
+    const rgb = hexToRgb(value) ?? [0, 0, 0]
+    return rgbToHsv(...rgb)
+  })
+  const [hexText, setHexText] = useState(value.replace('#', ''))
+  const hsvRef = useRef(hsv)
+  hsvRef.current = hsv
+  const dragRef = useRef<'sv' | 'hue' | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const svRef = useRef<HTMLDivElement>(null)
+  const hueRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => setHex(value.replace('#', '')), [value])
+  // Sync from an external value change (but not mid-drag, to avoid jitter).
+  useEffect(() => {
+    if (dragRef.current) return
+    const rgb = hexToRgb(value)
+    if (rgb) {
+      setHsv(rgbToHsv(...rgb))
+      setHexText(value.replace('#', ''))
+    }
+  }, [value])
 
   // Close on outside click.
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [open])
 
-  const commitHex = () => {
-    const v = normalizeHex(hex)
-    if (v) onChange(v)
-    else setHex(value.replace('#', ''))
+  const apply = (h: number, s: number, v: number) => {
+    const next: [number, number, number] = [h, s, v]
+    setHsv(next)
+    hsvRef.current = next
+    const hex = rgbToHex(...hsvToRgb(h, s, v))
+    setHexText(hex.replace('#', ''))
+    onChange(hex)
   }
 
+  const pickSV = (clientX: number, clientY: number) => {
+    const el = svRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const s = clamp((clientX - r.left) / r.width, 0, 1)
+    const v = clamp(1 - (clientY - r.top) / r.height, 0, 1)
+    apply(hsvRef.current[0], s, v)
+  }
+  const pickHue = (clientX: number) => {
+    const el = hueRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    apply(clamp((clientX - r.left) / r.width, 0, 1) * 360, hsvRef.current[1], hsvRef.current[2])
+  }
+
+  const onMove = (e: React.PointerEvent) => {
+    if (dragRef.current === 'sv') pickSV(e.clientX, e.clientY)
+    else if (dragRef.current === 'hue') pickHue(e.clientX)
+  }
+  const endDrag = () => {
+    dragRef.current = null
+  }
+
+  const commitHex = () => {
+    const rgb = hexToRgb(hexText)
+    if (rgb) onChange(rgbToHex(...rgb))
+    else setHexText(value.replace('#', ''))
+  }
+
+  // Native eyedropper — pick an exact pixel from anywhere on screen (incl. the PDF).
+  const pickFromScreen = async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ed = new (window as any).EyeDropper()
+      const res = await ed.open()
+      if (res?.sRGBHex) {
+        onChange(res.sRGBHex)
+        setOpen(false)
+      }
+    } catch {
+      /* user cancelled */
+    }
+  }
+
+  const [hue, sat, val] = hsv
+  const current = rgbToHex(...hsvToRgb(hue, sat, val))
+
   return (
-    <div className="cp" ref={ref}>
+    <div className="cp" ref={rootRef}>
       <button
         type="button"
         className="cp-trigger"
-        title="More colours"
+        title="Colour picker"
         onClick={() => setOpen((o) => !o)}
       >
         <span className="cp-dot" style={{ background: value }} />
       </button>
       {open && (
         <div className="cp-pop">
-          <div className="cp-grid">
-            {COLORS.map((c) => (
+          <div
+            className="cp-sv"
+            ref={svRef}
+            style={{ background: `hsl(${hue}, 100%, 50%)` }}
+            onPointerDown={(e) => {
+              dragRef.current = 'sv'
+              ;(e.target as Element).setPointerCapture?.(e.pointerId)
+              pickSV(e.clientX, e.clientY)
+            }}
+            onPointerMove={onMove}
+            onPointerUp={endDrag}
+          >
+            <div className="cp-sv-white" />
+            <div className="cp-sv-black" />
+            <div
+              className="cp-thumb"
+              style={{ left: `${sat * 100}%`, top: `${(1 - val) * 100}%`, background: current }}
+            />
+          </div>
+
+          <div
+            className="cp-hue"
+            ref={hueRef}
+            onPointerDown={(e) => {
+              dragRef.current = 'hue'
+              ;(e.target as Element).setPointerCapture?.(e.pointerId)
+              pickHue(e.clientX)
+            }}
+            onPointerMove={onMove}
+            onPointerUp={endDrag}
+          >
+            <div className="cp-hue-thumb" style={{ left: `${(hue / 360) * 100}%` }} />
+          </div>
+
+          {HAS_EYEDROPPER && (
+            <button type="button" className="cp-eyedrop" onClick={pickFromScreen}>
+              <Icon name="eyedropper" size={15} /> Pick colour from page
+            </button>
+          )}
+
+          <div className="cp-swatches">
+            {QUICK.map((c) => (
               <button
                 type="button"
                 key={c}
-                className={`cp-c${value.toLowerCase() === c ? ' active' : ''}${
-                  c === '#ffffff' ? ' light' : ''
-                }`}
+                className={`cp-sw${c === '#ffffff' ? ' light' : ''}`}
                 style={{ background: c }}
-                onClick={() => {
-                  onChange(c)
-                  setOpen(false)
-                }}
+                onClick={() => onChange(c)}
                 aria-label={c}
               />
             ))}
           </div>
+
           <div className="cp-hex">
-            <span className="cp-preview" style={{ background: normalizeHex(hex) ?? '#fff' }} />
+            <span className="cp-preview" style={{ background: value }} />
             <span className="cp-hash">#</span>
             <input
               className="cp-input"
-              value={hex}
+              value={hexText}
               maxLength={6}
               spellCheck={false}
               placeholder="000000"
-              onChange={(e) => setHex(e.target.value.replace(/[^0-9a-fA-F]/g, ''))}
+              onChange={(e) => setHexText(e.target.value.replace(/[^0-9a-fA-F]/g, ''))}
               onBlur={commitHex}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   commitHex()
-                  setOpen(false)
+                  ;(e.target as HTMLInputElement).blur()
                 }
               }}
             />

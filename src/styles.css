@@ -425,6 +425,7 @@ body {
   top: calc(100% + 8px);
   right: 0;
   z-index: 30;
+  width: 212px;
   padding: 10px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -432,28 +433,118 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
-.cp-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+/* saturation / brightness area */
+.cp-sv {
+  position: relative;
+  width: 100%;
+  height: 130px;
+  border-radius: 8px;
+  cursor: crosshair;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
 }
 
-.cp-c {
+.cp-sv-white {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, #fff, rgba(255, 255, 255, 0));
+}
+
+.cp-sv-black {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, #000, rgba(0, 0, 0, 0));
+}
+
+.cp-thumb {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* hue slider */
+.cp-hue {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  margin-top: 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  background: linear-gradient(
+    to right,
+    #ff0000 0%,
+    #ffff00 17%,
+    #00ff00 33%,
+    #00ffff 50%,
+    #0000ff 67%,
+    #ff00ff 83%,
+    #ff0000 100%
+  );
+}
+
+.cp-hue-thumb {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 20px;
+  border-radius: 3px;
+  border: 2px solid #fff;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.cp-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.cp-sw {
   width: 20px;
   height: 20px;
   border-radius: 5px;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   cursor: pointer;
   padding: 0;
 }
 
-.cp-c.light {
+.cp-sw.light {
   border-color: var(--border-strong);
 }
 
-.cp-c.active {
-  border-color: var(--text);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+.cp-eyedrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cp-eyedrop:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .cp-hex {
@@ -1345,27 +1436,27 @@ body {
 
 /* ============ Responsive ============ */
 /* ---------- Tablet ---------- */
-@media (max-width: 900px) {
+@media (max-width: 820px) {
   .topbar-center {
     display: none;
   }
   .priv-badge {
     display: none;
   }
-  /* hide the byline on small screens so it can't overlap the buttons */
+  /* hide the byline when tight so it can't overlap the buttons */
   .brand-by {
     display: none;
   }
   .sidebar {
-    width: 120px;
+    width: 130px;
   }
   .viewer {
     padding: 20px 14px 90px;
   }
 }
 
-/* ---------- Phone ---------- */
-@media (max-width: 640px) {
+/* ---------- Phone (TOUCH devices only — desktop is never affected) ---------- */
+@media (pointer: coarse) and (max-width: 760px) {
   .topbar {
     height: 52px;
     padding: 0 10px;
@@ -1476,8 +1567,8 @@ body {
   }
 }
 
-/* ---------- Small phone ---------- */
-@media (max-width: 400px) {
+/* ---------- Small phone (touch only) ---------- */
+@media (pointer: coarse) and (max-width: 420px) {
   .brand-name {
     font-size: 13px;
   }

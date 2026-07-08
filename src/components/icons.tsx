@@ -52,6 +52,12 @@ const PATHS: Record<string, JSX.Element> = {
       <path d="M5 11l9 9" />
     </>
   ),
+  eyedropper: (
+    <>
+      <path d="M19 3a2.1 2.1 0 00-3 0l-2.2 2.2 3 3L19 6a2.1 2.1 0 000-3z" />
+      <path d="M13.8 8.2L4 18v3h3l9.8-9.8" />
+    </>
+  ),
   trash: (
     <>
       <path d="M3 6h18" />

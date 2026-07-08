@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { ColorPicker } from './ColorPicker'
 
 interface Props {
   saved: string[]
@@ -144,10 +145,7 @@ export function SignaturePad({ saved, onSaveAndPlace, onUse, onDelete, onClose }
             ⌨️ Type
           </button>
           <div className="seg-spacer" />
-          <label className="sig-color" title="Ink colour">
-            <span style={{ background: color }} />
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
-          </label>
+          <ColorPicker value={color} onChange={setColor} />
         </div>
 
         {mode === 'draw' ? (

@@ -40,9 +40,12 @@ export default function App() {
   const [zoom, setZoom] = useState(1)
   const [busy, setBusy] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const [showThumbs, setShowThumbs] = useState(
-    () => typeof window === 'undefined' || window.innerWidth >= 768,
-  )
+  const [showThumbs, setShowThumbs] = useState(() => {
+    if (typeof window === 'undefined') return true
+    // Hidden by default only on real touch phones; desktop always shows it.
+    const touchPhone = navigator.maxTouchPoints > 0 && window.innerWidth < 820
+    return !touchPhone
+  })
   const [fitNonce, setFitNonce] = useState(0)
 
   // Editing state

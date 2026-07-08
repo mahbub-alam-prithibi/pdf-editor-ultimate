@@ -121,11 +121,16 @@ export function PageEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitNonce])
 
-  // On phones, auto-fit the page to the screen width once it's rendered.
+  // On touch phones, auto-fit the page to the screen width once it's rendered.
+  // (Never on desktop — the PC layout is left exactly as-is.)
   const autoFitDone = useRef(false)
   useEffect(() => {
     if (autoFitDone.current || !viewport || !viewerRef.current) return
-    if (typeof window === 'undefined' || window.innerWidth >= 768) return
+    const touchPhone =
+      typeof navigator !== 'undefined' &&
+      navigator.maxTouchPoints > 0 &&
+      window.innerWidth < 900
+    if (!touchPhone) return
     const avail = viewerRef.current.clientWidth - 20
     if (avail <= 0) return
     autoFitDone.current = true
