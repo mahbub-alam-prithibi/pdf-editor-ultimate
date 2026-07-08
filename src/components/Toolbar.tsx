@@ -40,8 +40,10 @@ export function Toolbar({
             <path d="M14 3v5h5" />
           </svg>
         </span>
-        <span className="brand-name">
-          <span className="brand-red">PDF</span> Editor Ultimate
+        <span className="brand-text">
+          <span className="brand-name">
+            <span className="brand-red">PDF</span> Editor Ultimate
+          </span>
           <span className="brand-by">by Ptb</span>
         </span>
       </div>

@@ -89,13 +89,22 @@ body {
   color: var(--accent);
 }
 
+.brand-text {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .brand-by {
-  font-size: 10px;
+  position: absolute;
+  left: 100%;
+  top: 58%;
+  margin-left: 3px;
+  font-size: 9px;
   font-weight: 600;
   color: var(--text-dim);
-  margin-left: 5px;
   letter-spacing: 0.3px;
-  vertical-align: 2px;
+  white-space: nowrap;
 }
 
 .topbar-center {
