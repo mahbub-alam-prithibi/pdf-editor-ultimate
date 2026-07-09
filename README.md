@@ -41,6 +41,7 @@ doesn't want to pay for Acrobat or trust a random website.
 - ✍️ **Add text** — pick from many fonts (Arial, Calibri, Times New Roman…), **bold/italic**, size, and colour
 - ✏️ **Edit existing text** — click a line to replace it; it detects and keeps the original **font, weight, style, size & colour** (incl. LaTeX / Computer Modern documents)
 - 🖊️ **Draw** freehand · 🖍️ **highlight** · ⬜ **whiteout / redact** · 🧽 **eraser** to remove any edit
+- 🎨 **Full colour picker** — RGB spectrum, hex input, preset swatches, and an **eyedropper that grabs the exact colour straight from your PDF**
 - 🖼️ **Insert images** — move & resize (aspect-locked)
 - ✒️ **E-signatures** — draw or type a signature, save it on your device, stamp it anywhere
 - 🧾 **Fill PDF forms** — text fields, checkboxes, radios, dropdowns (flattened on export)
@@ -118,7 +119,7 @@ Contributions welcome! See [issues](../../issues).
 - [ ] OCR — make scanned PDFs searchable & editable
 - [ ] Better mobile / touch experience
 
-**Done:** page tools (merge, drag-reorder, rotate, delete) · add & edit text with font detection · draw, highlight, whiteout, eraser · images · e-signatures · fill forms · undo/redo · light/red UI.
+**Done:** page tools (merge, drag-reorder, rotate, delete) · add & edit text with font detection · draw, highlight, whiteout, eraser · colour picker with in-page eyedropper · images · e-signatures · fill forms · undo/redo · light/red UI.
 
 ## 🤝 Contributing
 
